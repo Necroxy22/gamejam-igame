@@ -548,7 +548,7 @@ SpriteRenderer:
   m_Size: {x: 5.12, y: 4.87}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!65 &334434206
@@ -728,6 +728,7 @@ MonoBehaviour:
   resultTitleText: {fileID: 608341714}
   resultDetailText: {fileID: 1970431253}
   restartButton: {fileID: 1902245510}
+  buttonsWired: 0
 --- !u!114 &396411945
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -746,6 +747,8 @@ MonoBehaviour:
   winThreshold: 70
   scenarios: []
   uiManager: {fileID: 396411944}
+  currentInteractable: {fileID: 0}
+  completedScenarios: 0
 --- !u!4 &396411946
 Transform:
   m_ObjectHideFlags: 0
@@ -998,7 +1001,7 @@ SpriteRenderer:
   m_Size: {x: 5.12, y: 4.87}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &491621326
@@ -1083,7 +1086,7 @@ SpriteRenderer:
   m_Size: {x: 5.12, y: 4.87}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!65 &491621329
@@ -1302,7 +1305,7 @@ SpriteRenderer:
   m_Size: {x: 5.12, y: 4.87}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &555852816
@@ -2987,8 +2990,21 @@ MonoBehaviour:
   scenarioIndex: 2
   interactRange: 2.5
   footprintVisual: {fileID: 1636621363}
-  hoverTint: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  hoverTint:
+    r: 1
+    g: 0.92156863
+    b: 0.015686275
+    a: 1
   isCompleted: 0
+  originalColor:
+    r: 0
+    g: 0
+    b: 0
+    a: 0
+  objRenderer: {fileID: 0}
+  runtimeMaterial: {fileID: 0}
+  playerTransform: {fileID: 0}
+  isHighlighted: 0
 --- !u!65 &1482316494
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3075,8 +3091,21 @@ MonoBehaviour:
   scenarioIndex: 1
   interactRange: 2.5
   footprintVisual: {fileID: 537772646}
-  hoverTint: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  hoverTint:
+    r: 1
+    g: 0.92156863
+    b: 0.015686275
+    a: 1
   isCompleted: 0
+  originalColor:
+    r: 0
+    g: 0
+    b: 0
+    a: 0
+  objRenderer: {fileID: 0}
+  runtimeMaterial: {fileID: 0}
+  playerTransform: {fileID: 0}
+  isHighlighted: 0
 --- !u!114 &1482316502
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3092,8 +3121,21 @@ MonoBehaviour:
   scenarioIndex: 0
   interactRange: 2.5
   footprintVisual: {fileID: 483384433}
-  hoverTint: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  hoverTint:
+    r: 1
+    g: 0.92156863
+    b: 0.015686275
+    a: 1
   isCompleted: 0
+  originalColor:
+    r: 0
+    g: 0
+    b: 0
+    a: 0
+  objRenderer: {fileID: 0}
+  runtimeMaterial: {fileID: 0}
+  playerTransform: {fileID: 0}
+  isHighlighted: 0
 --- !u!1 &1493460492
 GameObject:
   m_ObjectHideFlags: 0
@@ -3770,7 +3812,7 @@ SpriteRenderer:
   m_Size: {x: 5.12, y: 4.87}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &1719520141
@@ -5813,6 +5855,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8bcf265da9247084c941aa11ca5c7086, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  agent: {fileID: 0}
+  mainCam: {fileID: 0}
 --- !u!195 &9108519071540463241
 NavMeshAgent:
   m_ObjectHideFlags: 0
