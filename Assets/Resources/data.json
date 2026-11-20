@@ -1,0 +1,188 @@
+{
+  "smartphoneScenarios": [
+    {
+      "id": "HP_01",
+      "riskLevel": "Tinggi",
+      "title": "Suara Ibu yang Aneh di Telepon",
+      "description": "Kamu ditelepon nomor tak dikenal yang mengaku ibumu dan minta transfer cepat buat biaya rumah sakit. Suaranya mirip banget, tapi ada suara mesin di latar dan nomornya beda dari biasanya.",
+      "option1Text": "Langsung transfer biar ibu nggak nunggu lama.",
+      "option1Delta": -25,
+      "option1Feedback": "Suara bisa ditiru AI cuma dari beberapa detik rekaman, jadi mirip bukan berarti aman. Cek dulu ke nomor yang tersimpan sebelum mengirim uang.",
+      "option2Text": "Telepon ulang ke nomor ibu yang tersimpan buat konfirmasi.",
+      "option2Delta": 15,
+      "option2Feedback": "Verifikasi lewat kanal yang sudah dikenal itu cara paling aman. Kalau suaranya palsu, kamu baru sadar sebelum uangnya hilang."
+    },
+    {
+      "id": "HP_02",
+      "riskLevel": "Tinggi",
+      "title": "Video Call yang Geraknya Kaku",
+      "description": "Ada video call dari 'atasan' yang minta kamu kirim OTP untuk reset akun kerja. Wajahnya mirip, tapi mulutnya nggak sinkron dan sering nge-freeze.",
+      "option1Text": "Tolak berikan OTP dan laporkan ke IT lewat kanal resmi.",
+      "option1Delta": 15,
+      "option1Feedback": "OTP itu rahasia dan hanya untukmu, jadi jangan dibagi ke siapa pun. Laporkan juga biar akun lain nggak kena tipu daya yang sama.",
+      "option2Text": "Kasih OTP-nya karena sudah lihat wajah dan suaranya.",
+      "option2Delta": -25,
+      "option2Feedback": "Deepfake bisa bikin wajah dan suara siapa pun dari foto publik. Wajah dan suara yang mirip bukan bukti bahwa panggilan itu asli."
+    },
+    {
+      "id": "HP_03",
+      "riskLevel": "Sedang",
+      "title": "QR Sticker di Meja Kafe",
+      "description": "Ada stiker QR bertuliskan 'menu & diskon 50%' yang menempel di atas QR asli. Setelah discan, kamu diarahkan ke situs yang minta data kartu untuk klaim hadiah.",
+      "option1Text": "Scan dan isi data kartu karena situsnya pakai logo kafe.",
+      "option1Delta": -25,
+      "option1Feedback": "QR palsu sering ditempel menutupi yang asli dan mengarah ke situs tiruan. Logo bisa disalin, jadi jangan masukkan data pembayaran dari link hasil scan.",
+      "option2Text": "Batalkan, pindai QR asli di meja kasir, dan jangan isi data kartu.",
+      "option2Delta": 15,
+      "option2Feedback": "Cek dulu apakah QR-nya asli atau ada stiker yang menutupi. Permintaan data kartu lewat QR hampir selalu tanda phishing."
+    },
+    {
+      "id": "HP_04",
+      "riskLevel": "Tinggi",
+      "title": "Aplikasi Cek Nilai yang Minta Login Google",
+      "description": "Ada tautan di grup kelas yang mengaku aplikasi cek nilai dan minta kamu login akun Google. Setelah izin diberikan, aplikasi itu bisa baca email dan dokumenmu tanpa kamu sadari.",
+      "option1Text": "Tutup, cek daftar aplikasi pihak ketiga di pengaturan akun, lalu cabut yang asing.",
+      "option1Delta": 15,
+      "option1Feedback": "Membersihkan akses pihak ketiga yang nggak kamu kenal itu langkah yang tepat. Ubah juga password dan aktifkan verifikasi dua langkah.",
+      "option2Text": "Izinkan saja karena sudah pilih akun Google-ku sendiri.",
+      "option2Delta": -25,
+      "option2Feedback": "Layar izin OAuth bisa disalahgunakan; aplikasi bisa baca email dan Drive-mu tanpa password. Baca daftar izinnya dulu dan tolak yang minta akses berlebihan."
+    },
+    {
+      "id": "HP_05",
+      "riskLevel": "Tinggi",
+      "title": "Filter Wajah yang Minta Akses Penuh",
+      "description": "Kamu pakai aplikasi filter AI yang lagi viral, tapi dia minta izin kamera dan galeri plus upload wajah ke server. Beberapa hari kemudian fotomu muncul di situs yang jual 'data wajah'.",
+      "option1Text": "Lanjut pakai, kan cuma filter buat bersenang-senang.",
+      "option1Delta": -25,
+      "option1Feedback": "Data wajah itu biometrik yang nggak bisa diganti seperti password. Aplikasi yang mengunggah wajah ke server berisiko membocorkannya.",
+      "option2Text": "Hapus aplikasinya, cek izin kamera dan galeri, lalu hati-hati pakai filter AI lain.",
+      "option2Delta": 15,
+      "option2Feedback": "Membatasi izin dan berhenti pakai aplikasi mencurigakan adalah langkah tepat. Data biometrik yang bocor susah diperbaiki."
+    }
+  ],
+  "monitorScenarios": [
+    {
+      "id": "MON_01",
+      "riskLevel": "Tinggi",
+      "title": "Tautan Undangan di Email Kantor",
+      "description": "Email mengaku undangan rapat dan minta kamu login Google lewat tautan. Halamannya mirip banget, tapi alamatnya beda tipis dari domain asli.",
+      "option1Text": "Jangan klik, buka situs Google langsung dari bookmark dan cek login yang aktif.",
+      "option1Delta": 15,
+      "option1Feedback": "Perhatikan domain, bukan tampilan halamannya. Cek juga sesi login aktif dan cabut yang tidak dikenal.",
+      "option2Text": "Login lewat tautan itu karena tampilannya sama persis dengan halaman Google.",
+      "option2Delta": -25,
+      "option2Feedback": "Halaman palsu bisa dibuat semirip mungkin, yang membedakan cuma domainnya. Selalu ketik alamat situs sendiri atau pakai bookmark yang sudah dikenal."
+    },
+    {
+      "id": "MON_02",
+      "riskLevel": "Sedang",
+      "title": "PDF Tagihan Pajak dari Email Tak Dikenal",
+      "description": "Kamu dapat email berisi PDF tagihan pajak yang harus dibayar lewat tautan sebelum tenggat. File-nya minta kamu 'aktifkan konten' dulu supaya isinya terlihat.",
+      "option1Text": "Aktifkan konten dan bayar lewat tautan di PDF biar nggak kena denda.",
+      "option1Delta": -25,
+      "option1Feedback": "PDF yang minta aktifkan konten bisa mengunduh malware, dan tautan pembayarannya biasanya palsu. Jangan pernah aktifkan konten dari file tak dikenal.",
+      "option2Text": "Hapus emailnya dan cek tagihan resmi lewat situs pajak yang kamu ketik sendiri.",
+      "option2Delta": 15,
+      "option2Feedback": "Verifikasi lewat kanal resmi adalah cara paling aman. Lampiran PDF dari pengirim tak dikenal sebaiknya tidak dibuka."
+    },
+    {
+      "id": "MON_03",
+      "riskLevel": "Tinggi",
+      "title": "Foto KTP untuk Tiket Konser",
+      "description": "Situs tiket konser minta kamu upload foto KTP dan selfie untuk verifikasi pembelian. Setelah transaksi, foto KTP-mu malah bertebaran di grup jual beli.",
+      "option1Text": "Cek reputasi situsnya dulu dan hindari upload dokumen asli ke platform tak terverifikasi.",
+      "option1Delta": 15,
+      "option1Feedback": "Verifikasi reputasi situs sebelum menyerahkan dokumen pribadi. Kalau sudah terlanjur, segera ganti kata sandi terkait dan pantau kebocoran.",
+      "option2Text": "Upload KTP dan selfie karena website-nya terlihat profesional.",
+      "option2Delta": -25,
+      "option2Feedback": "Situs tiket palsu memakai dokumenmu untuk pinjol atau penipuan lain. Pastikan dulu domainnya resmi dan cek kebijakan penyimpanan data."
+    },
+    {
+      "id": "MON_04",
+      "riskLevel": "Sedang",
+      "title": "Resi COD Berserakan di Grup",
+      "description": "Kamu foto resi paket COD lalu share ke grup supaya teman tahu lokasimu. Di resi itu tercantum nama, alamat lengkap, nomor HP, dan nominal pembayaran.",
+      "option1Text": "Santai saja, resi cuma kertas biasa dan nggak ada nomor rekening.",
+      "option1Delta": -25,
+      "option1Feedback": "Resi COD memuat nama, alamat, nomor HP, dan nominal yang cukup untuk penipuan lanjutan. Data ini sering dipakai pelaku untuk mengaku kurir atau menagih uang palsu.",
+      "option2Text": "Tutup data sensitif di foto sebelum dibagikan, atau jangan share resi sama sekali.",
+      "option2Delta": 15,
+      "option2Feedback": "Menutupi nama, alamat, dan nomor HP mencegah doxxing. Membagikan resi mentah bisa bikin kamu jadi target penipuan COD."
+    },
+    {
+      "id": "MON_05",
+      "riskLevel": "Tinggi",
+      "title": "Filter AI Web Minta Upload Selfie",
+      "description": "Di laptop, kamu coba filter AI berbasis web yang minta upload beberapa selfie dan izin kamera. Beberapa waktu kemudian, data wajahmu dipakai untuk membuat akun palsu di aplikasi lain.",
+      "option1Text": "Batalkan, tutup tab, dan cek izin kamera serta hapus data yang sudah terunggah.",
+      "option1Delta": 15,
+      "option1Feedback": "Membatalkan dan membatasi izin adalah respons yang tepat. Laporkan situsnya kalau data wajahmu sudah bocor.",
+      "option2Text": "Upload selfie karena situsnya gratis dan cuma untuk filter wajah.",
+      "option2Delta": -25,
+      "option2Feedback": "Data wajah yang diunggah ke situs sembarangan bisa disalahgunakan untuk membuat akun atau deepfake. Situs gratis pun bisa menyimpan biometrikmu."
+    }
+  ],
+  "packageScenarios": [
+    {
+      "id": "PKG_01",
+      "riskLevel": "Tinggi",
+      "title": "APK Kurir dari Tautan SMS",
+      "description": "SMS mengaku kurir memintamu install APK pelacakan paket karena 'sistem berubah'. Setelah diinstal, aplikasi itu minta izin SMS dan aksesibilitas.",
+      "option1Text": "Install APK-nya dari tautan SMS supaya bisa lacak paket.",
+      "option1Delta": -25,
+      "option1Feedback": "APK di luar toko resmi bisa menyisipkan malware pencuri SMS dan OTP. Instal aplikasi hanya dari sumber resmi, bukan dari tautan SMS.",
+      "option2Text": "Abaikan tautannya, lacak paket lewat aplikasi atau situs resmi ekspedisi.",
+      "option2Delta": 15,
+      "option2Feedback": "Kurir resmi tidak menyebar APK lewat SMS acak. Lacak paket hanya lewat kanal yang sudah dikenal."
+    },
+    {
+      "id": "PKG_02",
+      "riskLevel": "Sedang",
+      "title": "PDF Biaya Kirim Ulang dari Nomor Asing",
+      "description": "Kamu dapat pesan berisi PDF tagihan biaya kirim ulang yang harus dibayar dalam 10 menit. Isinya rapi, ada logo ekspedisi, dan tautan pembayaran.",
+      "option1Text": "Cek dulu nomor resi di situs resmi dan jangan bayar lewat tautan di PDF.",
+      "option1Delta": 15,
+      "option1Feedback": "Verifikasi resi lewat kanal resmi mencegah pembayaran ke penipu. Kurir resmi tidak menagih lewat tautan di lampiran PDF.",
+      "option2Text": "Bayar lewat tautan di PDF karena logonya resmi dan ada batas waktu.",
+      "option2Delta": -25,
+      "option2Feedback": "Logo bisa dipalsukan dan tenggat waktu dipakai untuk menekan korban. Bayar pengiriman hanya lewat aplikasi atau situs resmi ekspedisi."
+    },
+    {
+      "id": "PKG_03",
+      "riskLevel": "Sedang",
+      "title": "Foto Resi COD di Grup RT",
+      "description": "Kamu share foto resi COD ke grup RT supaya tetangga tahu paketnya sudah sampai. Foto itu menampilkan nama, alamat, nomor HP, dan nominal COD.",
+      "option1Text": "Kirim saja fotonya, kan cuma buat informasi grup.",
+      "option1Delta": -25,
+      "option1Feedback": "Resi COD berisi data yang cukup untuk penipuan lanjutan, seperti mengaku kurir dan menagih uang. Data ini juga bisa dipakai untuk doxxing.",
+      "option2Text": "Tutup nama, alamat, dan nomor HP sebelum kirim, atau kirim info singkat tanpa foto.",
+      "option2Delta": 15,
+      "option2Feedback": "Menutup data sensitif menjaga privasimu dari penyalahgunaan. Info singkat tanpa foto sudah cukup untuk grup."
+    },
+    {
+      "id": "PKG_04",
+      "riskLevel": "Tinggi",
+      "title": "Kurir Minta Foto KTP via Chat",
+      "description": "Nomor yang mengaku kurir minta foto KTP dan selfie via chat untuk 'verifikasi pengiriman'. Setelah dikirim, nomornya hilang dan KTP-mu dipakai daftar pinjaman online.",
+      "option1Text": "Tolak, minta verifikasi lewat aplikasi resmi, dan laporkan nomornya.",
+      "option1Delta": 15,
+      "option1Feedback": "Menolak memberi dokumen pribadi adalah langkah tepat. Laporkan nomornya biar nggak ada korban lain.",
+      "option2Text": "Kirim foto KTP dan selfie karena sudah terlanjur pesan paket.",
+      "option2Delta": -25,
+      "option2Feedback": "Kurir resmi tidak pernah minta KTP lewat chat pribadi. Data ini bisa dipakai untuk pinjol ilegal dan penipuan atas namamu."
+    },
+    {
+      "id": "PKG_05",
+      "riskLevel": "Tinggi",
+      "title": "Telepon Kurir yang Suaranya Ketularan AI",
+      "description": "Nomor asing mengaku kurir dan bilang paketmu nyangkut, minta biaya 'selesaikan' lewat transfer pribadi. Suaranya mirip petugas dan menyebut data paketmu dengan benar.",
+      "option1Text": "Transfer ke rekening pribadi karena dia tahu detail paketmu.",
+      "option1Delta": -25,
+      "option1Feedback": "Data paket bisa bocor dari resi yang bertebaran, dan suara bisa ditiru AI. Kurir resmi tidak pernah minta transfer ke rekening pribadi.",
+      "option2Text": "Tolak transfer dan konfirmasi lewat aplikasi resmi ekspedisi.",
+      "option2Delta": 15,
+      "option2Feedback": "Konfirmasi lewat kanal resmi adalah cara paling aman. Jangan pernah transfer uang ke rekening pribadi atas nama kurir."
+    }
+  ]
+}
