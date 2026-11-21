@@ -38,10 +38,29 @@ namespace CuriesCrucible.Alchemy
         [Tooltip("Batas maksimal stok per bahan dasar.")]
         public int maxStockPerIngredient = 6;
 
+        [Header("Hotbar 6 Slot Tetap")]
+        [Tooltip("Stok masing-masing dari 6 slot ramuan tetap.")]
+        public int[] potionStock = new int[6];
+        public int selectedSlotIndex = 0;
+
+        public static readonly PotionType[] FixedSlotPotions = new PotionType[6]
+        {
+            PotionType.GelSabunBeku,        // Slot 0 (Key 1): Basa + Pendingin
+            PotionType.KabutAsamDingin,      // Slot 1 (Key 2): Asam + Pendingin
+            PotionType.LedakanEsInstan,      // Slot 2 (Key 3): Pendingin + Katalis
+            PotionType.AsamPelarutKarat,     // Slot 3 (Key 4): Asam + Katalis
+            PotionType.BomNetralisasi,       // Slot 4 (Key 5): Asam + Basa
+            PotionType.BusaSabunMengembang   // Slot 5 (Key 6): Basa + Katalis
+        };
+
         [Header("Tas Ramuan")]
         public List<MixedPotion> mixedPotions = new List<MixedPotion>();
         public int maxPotionSlots = 6;
-        public int selectedIndex;
+        public int selectedIndex
+        {
+            get { return selectedSlotIndex; }
+            set { selectedSlotIndex = Mathf.Clamp(value, 0, 5); }
+        }
 
         [Header("Resep")]
         [Tooltip("Isi otomatis dari Assets/Data/Recipes saat menu Generate dijalankan. " +
@@ -52,20 +71,14 @@ namespace CuriesCrucible.Alchemy
         [Tooltip("ArenaThrowTargeting yang akan menerima stok ramuan.")]
         public ArenaThrowTargeting targeting;
 
-        [Header("Overlay")]
-        public bool showDebugOverlay = true;
-
-        /// <summary>Tampilkan buku resep (F2) alih-alih panel utama.</summary>
-        public bool showRecipeBook = false;
+        [Tooltip("Jika false, GameplayUIBridge mengambil alih input keyboard (1-6 pilih ramuan, Q/E, R, F).")]
+        public bool keyboardInputEnabled = true;
 
         /// <summary>Terpanggil setiap ada pesan untuk pemain (bisa dihubungkan ke UI).</summary>
         public event Action<string> OnMessage;
 
         /// <summary>Terpanggil saat daftar ramuan berubah.</summary>
         public event Action OnInventoryChanged;
-
-        string _lastMessage = "";
-        float _messageUntil;
 
         // ------------------------------------------------------------------
         // Properties
@@ -84,23 +97,31 @@ namespace CuriesCrucible.Alchemy
 
         public int PotionCount
         {
-            get { return mixedPotions != null ? mixedPotions.Count : 0; }
+            get
+            {
+                EnsurePotionStock();
+                int total = 0;
+                for (int i = 0; i < potionStock.Length; i++) total += potionStock[i];
+                return total;
+            }
         }
 
         public bool HasPotion
         {
-            get { return PotionCount > 0; }
+            get
+            {
+                EnsurePotionStock();
+                selectedSlotIndex = Mathf.Clamp(selectedSlotIndex, 0, 5);
+                return potionStock[selectedSlotIndex] > 0;
+            }
         }
 
         public MixedPotion SelectedPotion
         {
             get
             {
-                if (mixedPotions == null || mixedPotions.Count == 0)
-                    return null;
-
-                selectedIndex = Mathf.Clamp(selectedIndex, 0, mixedPotions.Count - 1);
-                return mixedPotions[selectedIndex];
+                selectedSlotIndex = Mathf.Clamp(selectedSlotIndex, 0, 5);
+                return CreatePotionInstance(FixedSlotPotions[selectedSlotIndex]);
             }
         }
 
@@ -168,9 +189,25 @@ namespace CuriesCrucible.Alchemy
                 for (int i = 0; i < ingredientStock.Length; i++)
                     ingredientStock[i] = Mathf.Max(0, startingStockPerIngredient);
             }
+
+            EnsurePotionStock();
         }
 
-        /// <summary>Isi ulang stok bahan dasar ke nilai awal (mis. untuk restart).</summary>
+        public void EnsurePotionStock()
+        {
+            if (potionStock == null || potionStock.Length < 6)
+            {
+                int[] old = potionStock;
+                potionStock = new int[6];
+                if (old != null)
+                {
+                    for (int i = 0; i < old.Length && i < 6; i++)
+                        potionStock[i] = old[i];
+                }
+            }
+        }
+
+        /// <summary>Isi ulang stok bahan dasar & ramuan ke nilai awal (mis. untuk restart).</summary>
         public void RefillStock()
         {
             if (ingredientStock == null || ingredientStock.Length < 4)
@@ -178,6 +215,13 @@ namespace CuriesCrucible.Alchemy
 
             for (int i = 0; i < ingredientStock.Length; i++)
                 ingredientStock[i] = Mathf.Max(0, startingStockPerIngredient);
+
+            EnsurePotionStock();
+            for (int i = 0; i < potionStock.Length; i++)
+                potionStock[i] = 0;
+
+            SyncMixedPotionsList();
+            FireInventoryChanged();
         }
 
         void EnsureRecipes()
@@ -194,24 +238,26 @@ namespace CuriesCrucible.Alchemy
 
         void HandleInput()
         {
+            // Jika UI Bridge aktif, ia mengambil alih seluruh input keyboard.
+            if (!keyboardInputEnabled)
+                return;
+
             // Abaikan input jika waktu dibekukan atau spotlight zombie baru sedang aktif
             if (Time.timeScale <= 0f || CuriesCrucible.Gameplay.ZombieIntroSpotlight.IsSpotlightActive)
                 return;
 
-            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
-                AddIngredient(IngredientType.BahanBasa_Biru);
+            // 1-6: Pilih slot ramuan aktif
+            for (int i = 0; i < 6; i++)
+            {
+                KeyCode num = (KeyCode)((int)KeyCode.Alpha1 + i);
+                KeyCode pad = (KeyCode)((int)KeyCode.Keypad1 + i);
+                if (Input.GetKeyDown(num) || Input.GetKeyDown(pad))
+                    SelectSlot(i);
+            }
 
-            if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
-                AddIngredient(IngredientType.BahanPendingin_Cyan);
-
-            if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
-                AddIngredient(IngredientType.BahanAsam_Merah);
-
-            if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4))
-                AddIngredient(IngredientType.BahanKatalis_Kuning);
-
+            // R: Racik 1x resep dari slot terpilih
             if (Input.GetKeyDown(KeyCode.R))
-                Brew();
+                BrewSelectedSlot();
 
             if (Input.GetKeyDown(KeyCode.Q))
                 SelectPrevious();
@@ -221,12 +267,6 @@ namespace CuriesCrucible.Alchemy
 
             if (Input.GetKeyDown(KeyCode.F))
                 ClearCauldron(true);
-
-            if (Input.GetKeyDown(KeyCode.F1))
-                showDebugOverlay = !showDebugOverlay;
-
-            if (Input.GetKeyDown(KeyCode.F2))
-                showRecipeBook = !showRecipeBook;
         }
 
         // ------------------------------------------------------------------
@@ -296,9 +336,20 @@ namespace CuriesCrucible.Alchemy
             }
 
             MixedPotion potion = recipe.CreatePotion();
-            mixedPotions.Add(potion);
-            selectedIndex = mixedPotions.Count - 1;
 
+            // Masukkan juga ke slot Hotbar tetap yang sesuai
+            EnsurePotionStock();
+            for (int i = 0; i < FixedSlotPotions.Length; i++)
+            {
+                if (FixedSlotPotions[i] == recipe.potionType)
+                {
+                    potionStock[i]++;
+                    selectedSlotIndex = i;
+                    break;
+                }
+            }
+
+            SyncMixedPotionsList();
             ClearCauldron(false);
             Notify("Berhasil meracik " + potion.displayName + "!");
             FireInventoryChanged();
@@ -340,33 +391,232 @@ namespace CuriesCrucible.Alchemy
             slot2Filled = false;
         }
 
-        // ------------------------------------------------------------------
-        // Tas ramuan
-        // ------------------------------------------------------------------
-
-        /// <summary>Ambil & hapus ramuan terpilih (dipakai ArenaThrowTargeting saat melempar).</summary>
-        public bool TryConsumeSelected(out MixedPotion potion)
+        /// <summary>Keluarkan bahan dari slot kuali (0 = slot1, 1 = slot2) dan kembalikan ke stok.</summary>
+        public bool RemoveIngredientFromSlot(int slot)
         {
-            potion = null;
-
-            if (mixedPotions == null || mixedPotions.Count == 0)
+            EnsureStock();
+            if (slot == 0 && slot1Filled)
             {
-                Notify("Tidak ada ramuan - racik dulu di kuali (1-4 lalu R)");
+                ingredientStock[(int)slot1]++;
+                slot1Filled = false;
+                FireInventoryChanged();
+                return true;
+            }
+            if (slot == 1 && slot2Filled)
+            {
+                ingredientStock[(int)slot2]++;
+                slot2Filled = false;
+                FireInventoryChanged();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Memasang bahan ke slot kuali tertentu (0 = slot1, 1 = slot2). Jika slot sudah terisi, bahan lama di-refund.</summary>
+        public bool SetCauldronSlot(int slot, IngredientType type)
+        {
+            EnsureStock();
+            int idx = (int)type;
+            if (idx < 0 || idx >= ingredientStock.Length || ingredientStock[idx] <= 0)
+            {
+                Notify("Stok " + AlchemyDatabase.IngredientName(type) + " habis");
                 return false;
             }
 
-            selectedIndex = Mathf.Clamp(selectedIndex, 0, mixedPotions.Count - 1);
-            potion = mixedPotions[selectedIndex];
+            if (slot == 0)
+            {
+                if (slot1Filled)
+                    ingredientStock[(int)slot1]++;
+                slot1 = type;
+                slot1Filled = true;
+                ingredientStock[idx]--;
+                Notify("Memasang " + AlchemyDatabase.IngredientName(type) + " di Slot 1");
+                FireInventoryChanged();
+                return true;
+            }
+            else if (slot == 1)
+            {
+                if (slot2Filled)
+                    ingredientStock[(int)slot2]++;
+                slot2 = type;
+                slot2Filled = true;
+                ingredientStock[idx]--;
+                Notify("Memasang " + AlchemyDatabase.IngredientName(type) + " di Slot 2");
+                FireInventoryChanged();
+                return true;
+            }
+            return false;
+        }
 
-            mixedPotions.RemoveAt(selectedIndex);
+        /// <summary>Membuang 1x bahan langsung dari stok pemain.</summary>
+        public bool DiscardFromStock(IngredientType type)
+        {
+            EnsureStock();
+            int idx = (int)type;
+            if (idx >= 0 && idx < ingredientStock.Length && ingredientStock[idx] > 0)
+            {
+                ingredientStock[idx]--;
+                Notify("Membuang 1x " + AlchemyDatabase.IngredientName(type));
+                FireInventoryChanged();
+                return true;
+            }
+            return false;
+        }
 
-            if (mixedPotions.Count == 0)
-                selectedIndex = 0;
-            else
-                selectedIndex = Mathf.Clamp(selectedIndex, 0, mixedPotions.Count - 1);
+        /// <summary>Membuang bahan dari slot kuali tanpa refund ke stok.</summary>
+        public bool DiscardFromCauldron(int slot)
+        {
+            EnsureStock();
+            if (slot == 0 && slot1Filled)
+            {
+                IngredientType t = slot1;
+                slot1Filled = false;
+                Notify("Membuang 1x " + AlchemyDatabase.IngredientName(t));
+                FireInventoryChanged();
+                return true;
+            }
+            else if (slot == 1 && slot2Filled)
+            {
+                IngredientType t = slot2;
+                slot2Filled = false;
+                Notify("Membuang 1x " + AlchemyDatabase.IngredientName(t));
+                FireInventoryChanged();
+                return true;
+            }
+            return false;
+        }
 
+        /// <summary>Pindah atau tukar isi slot kuali antar slot1 dan slot2.</summary>
+        public void SwapCauldronSlots()
+        {
+            if (!slot1Filled && !slot2Filled) return;
+            IngredientType tempType = slot1;
+            bool tempFilled = slot1Filled;
+            slot1 = slot2;
+            slot1Filled = slot2Filled;
+            slot2 = tempType;
+            slot2Filled = tempFilled;
+            FireInventoryChanged();
+        }
+
+        // ------------------------------------------------------------------
+        // Hotbar 6 Slot Tetap & Racik Langsung (HUD Minimalis)
+        // ------------------------------------------------------------------
+
+        public static void GetSlotIngredients(int slot, out IngredientType a, out IngredientType b)
+        {
+            switch (slot)
+            {
+                case 0: a = IngredientType.BahanBasa_Biru; b = IngredientType.BahanPendingin_Cyan; break;     // Gel Sabun Beku
+                case 1: a = IngredientType.BahanAsam_Merah; b = IngredientType.BahanPendingin_Cyan; break;    // Kabut Asam Dingin
+                case 2: a = IngredientType.BahanPendingin_Cyan; b = IngredientType.BahanKatalis_Kuning; break; // Ledakan Es Instan
+                case 3: a = IngredientType.BahanAsam_Merah; b = IngredientType.BahanKatalis_Kuning; break;    // Asam Pelarut Karat
+                case 4: a = IngredientType.BahanAsam_Merah; b = IngredientType.BahanBasa_Biru; break;         // Bom Netralisasi
+                case 5: a = IngredientType.BahanBasa_Biru; b = IngredientType.BahanKatalis_Kuning; break;     // Busa Sabun Mengembang
+                default: a = IngredientType.BahanBasa_Biru; b = IngredientType.BahanPendingin_Cyan; break;
+            }
+        }
+
+        /// <summary>Racik 1x resep dari slot 1-6 yang sedang dipilih.</summary>
+        public bool BrewSelectedSlot()
+        {
+            return BrewSlot(selectedSlotIndex);
+        }
+
+        /// <summary>Racik 1x resep slot tertentu (0-5) jika stok kedua bahan dasar mencukupi.</summary>
+        public bool BrewSlot(int slot)
+        {
+            if (slot < 0 || slot >= 6) return false;
+
+            EnsureStock();
+            EnsurePotionStock();
+
+            IngredientType a, b;
+            GetSlotIngredients(slot, out a, out b);
+
+            int idxA = (int)a;
+            int idxB = (int)b;
+
+            if (ingredientStock[idxA] < 1 || ingredientStock[idxB] < 1)
+            {
+                string pName = AlchemyDatabase.PotionName(FixedSlotPotions[slot]);
+                Notify("Bahan tidak cukup untuk meracik " + pName + "! Butuh " +
+                    AlchemyDatabase.IngredientName(a) + " & " + AlchemyDatabase.IngredientName(b));
+                return false;
+            }
+
+            ingredientStock[idxA]--;
+            ingredientStock[idxB]--;
+            potionStock[slot]++;
+
+            SyncMixedPotionsList();
+
+            string brewedName = AlchemyDatabase.PotionName(FixedSlotPotions[slot]);
+            Notify("Berhasil meracik " + brewedName + "! (Stok: " + potionStock[slot] + "x)");
             FireInventoryChanged();
             return true;
+        }
+
+        /// <summary>Ambil & konsumsi 1x ramuan dari slot terpilih (dipakai ArenaThrowTargeting saat melempar).</summary>
+        public bool TryConsumeSelected(out MixedPotion potion)
+        {
+            potion = null;
+            EnsurePotionStock();
+
+            selectedSlotIndex = Mathf.Clamp(selectedSlotIndex, 0, 5);
+
+            if (potionStock[selectedSlotIndex] <= 0)
+            {
+                string pName = AlchemyDatabase.PotionName(FixedSlotPotions[selectedSlotIndex]);
+                Notify("Stok " + pName + " habis (0x)! Tekan R untuk meracik.");
+                return false;
+            }
+
+            potionStock[selectedSlotIndex]--;
+            potion = CreatePotionInstance(FixedSlotPotions[selectedSlotIndex]);
+
+            SyncMixedPotionsList();
+            FireInventoryChanged();
+            return true;
+        }
+
+        public MixedPotion CreatePotionInstance(PotionType type)
+        {
+            EnsureRecipes();
+            if (recipes != null)
+            {
+                for (int i = 0; i < recipes.Count; i++)
+                {
+                    if (recipes[i] != null && recipes[i].potionType == type)
+                        return recipes[i].CreatePotion();
+                }
+            }
+
+            return new MixedPotion
+            {
+                type = type,
+                displayName = AlchemyDatabase.PotionName(type),
+                color = AlchemyDatabase.PotionColor(type),
+                damage = 25f,
+                radius = 1.8f
+            };
+        }
+
+        public void SyncMixedPotionsList()
+        {
+            if (mixedPotions == null)
+                mixedPotions = new List<MixedPotion>();
+            else
+                mixedPotions.Clear();
+
+            EnsurePotionStock();
+            for (int i = 0; i < 6; i++)
+            {
+                for (int count = 0; count < potionStock[i]; count++)
+                {
+                    mixedPotions.Add(CreatePotionInstance(FixedSlotPotions[i]));
+                }
+            }
         }
 
         public bool AddPotion(MixedPotion potion)
@@ -374,82 +624,52 @@ namespace CuriesCrucible.Alchemy
             if (potion == null)
                 return false;
 
-            if (mixedPotions == null)
-                mixedPotions = new List<MixedPotion>();
+            EnsurePotionStock();
+            int slot = (int)potion.type;
+            if (slot >= 0 && slot < 6)
+            {
+                potionStock[slot]++;
+                selectedSlotIndex = slot;
+                SyncMixedPotionsList();
+                FireInventoryChanged();
+                return true;
+            }
 
-            if (mixedPotions.Count >= maxPotionSlots)
-                return false;
-
-            mixedPotions.Add(potion);
-            selectedIndex = mixedPotions.Count - 1;
-            FireInventoryChanged();
-            return true;
+            return false;
         }
 
-        /// <summary>Hadiah wave: tambah N ramuan acak dari resep yang tersedia.</summary>
+        /// <summary>Hadiah wave: tambah N ramuan acak dari 6 slot ramuan tetap.</summary>
         public int AddRandomPotions(int amount)
         {
-            EnsureRecipes();
-
-            if (mixedPotions == null)
-                mixedPotions = new List<MixedPotion>();
-
-            int added = 0;
-
+            EnsurePotionStock();
             for (int i = 0; i < amount; i++)
             {
-                if (mixedPotions.Count >= maxPotionSlots)
-                    break;
-
-                PotionRecipeSO recipe = PickRandomRecipe();
-                if (recipe == null)
-                    break;
-
-                mixedPotions.Add(recipe.CreatePotion());
-                added++;
+                int r = UnityEngine.Random.Range(0, 6);
+                potionStock[r]++;
             }
 
-            if (added > 0)
-            {
-                selectedIndex = mixedPotions.Count - 1;
-                FireInventoryChanged();
-                Notify("Menerima " + added + " ramuan hadiah wave");
-            }
-
-            return added;
+            SyncMixedPotionsList();
+            FireInventoryChanged();
+            Notify("Menerima " + amount + " ramuan hadiah wave");
+            return amount;
         }
 
-        PotionRecipeSO PickRandomRecipe()
+        public void SelectSlot(int index)
         {
-            if (recipes == null || recipes.Count == 0)
-                return null;
-
-            for (int attempt = 0; attempt < recipes.Count; attempt++)
-            {
-                PotionRecipeSO recipe = recipes[UnityEngine.Random.Range(0, recipes.Count)];
-                if (recipe != null)
-                    return recipe;
-            }
-
-            return null;
+            selectedSlotIndex = Mathf.Clamp(index, 0, 5);
+            FireInventoryChanged();
         }
 
         public void SelectNext()
         {
-            if (mixedPotions == null || mixedPotions.Count == 0)
-                return;
-
-            selectedIndex = (selectedIndex + 1) % mixedPotions.Count;
+            selectedSlotIndex = (selectedSlotIndex + 1) % 6;
+            FireInventoryChanged();
         }
 
         public void SelectPrevious()
         {
-            if (mixedPotions == null || mixedPotions.Count == 0)
-                return;
-
-            selectedIndex--;
-            if (selectedIndex < 0)
-                selectedIndex = mixedPotions.Count - 1;
+            selectedSlotIndex = (selectedSlotIndex - 1 + 6) % 6;
+            FireInventoryChanged();
         }
 
         // ------------------------------------------------------------------
@@ -523,131 +743,10 @@ namespace CuriesCrucible.Alchemy
 
         void Notify(string message)
         {
-            _lastMessage = message;
-            _messageUntil = Time.time + 3f;
-
             if (OnMessage != null)
                 OnMessage(message);
 
             Debug.Log("[Alchemy] " + message);
-        }
-
-        void DrawMessage()
-        {
-            if (string.IsNullOrEmpty(_lastMessage) || Time.time >= _messageUntil)
-                return;
-
-            var style = new GUIStyle(GUI.skin.label);
-            style.richText = true;
-            style.fontSize = 15;
-            style.alignment = TextAnchor.MiddleCenter;
-
-            GUI.color = new Color(1f, 1f, 1f, 0.92f);
-            GUI.Label(
-                new Rect(160f, Screen.height - 54f, Screen.width - 320f, 30f),
-                _lastMessage,
-                style);
-            GUI.color = Color.white;
-        }
-
-        // ------------------------------------------------------------------
-        // Overlay debug (bisa dimatikan di Inspector)
-        // ------------------------------------------------------------------
-
-        void OnGUI()
-        {
-            if (!showDebugOverlay)
-                return;
-
-            DrawMessage();
-
-            if (showRecipeBook)
-            {
-                DrawRecipeBook();
-                return;
-            }
-
-            var style = new GUIStyle(GUI.skin.label);
-            style.richText = true;
-            style.fontSize = 13;
-
-            GUILayout.BeginArea(new Rect(10f, 10f, 620f, 250f), GUI.skin.box);
-
-            GUILayout.Label("<b>ALCHEMY</b>", style);
-            GUILayout.Label("pH: <b>" + CurrentPH.ToString("0.0") + "</b> / 14.0   (netral 7.0)", style);
-
-            string slotText = "Kuali: <color=#9fe>[ " +
-                              (slot1Filled ? AlchemyDatabase.IngredientName(slot1) : "kosong") +
-                              " ]</color>  +  <color=#9fe>[ " +
-                              (slot2Filled ? AlchemyDatabase.IngredientName(slot2) : "kosong") +
-                              " ]</color>";
-            GUILayout.Label(slotText, style);
-
-            string stockText = "Stok: ";
-            for (int i = 0; i < ingredientStock.Length && i < 4; i++)
-            {
-                var type = (IngredientType)i;
-                stockText += "<color=#" + ColorUtility.ToHtmlStringRGB(AlchemyDatabase.IngredientColor(type)) + ">" +
-                             (i + 1) + ":" + AlchemyDatabase.IngredientName(type) + "=" + ingredientStock[i] +
-                             "</color>   ";
-            }
-            GUILayout.Label(stockText, style);
-
-            GUILayout.Label("Ramuan (" + PotionCount + "/" + maxPotionSlots + "):", style);
-
-            if (PotionCount == 0)
-            {
-                GUILayout.Label("  <i>(kosong)</i>", style);
-            }
-            else
-            {
-                for (int i = 0; i < mixedPotions.Count; i++)
-                {
-                    string marker = i == selectedIndex ? "â–¶ " : "   ";
-                    GUILayout.Label(marker + (i + 1) + ". " + mixedPotions[i].displayName, style);
-                }
-            }
-
-            GUILayout.Label("<i>1-4 bahan  |  R brew  |  Q/E pilih  |  F kosongkan  |  F1 overlay  |  F2 resep</i>", style);
-            GUILayout.Label("<i>A/D geser Marie  |  Klik kiri di jalan = lempar ramuan terpilih</i>", style);
-
-            GUILayout.EndArea();
-        }
-
-        void DrawRecipeBook()
-        {
-            EnsureRecipes();
-
-            var style = new GUIStyle(GUI.skin.label);
-            style.richText = true;
-            style.fontSize = 13;
-
-            GUILayout.BeginArea(new Rect(10f, 10f, 620f, 320f), GUI.skin.box);
-
-            GUILayout.Label("<b>BUKU RESEP</b>  <i>(F2 untuk kembali)</i>", style);
-            GUILayout.Label("pH = 7.0 + modifier bahan. Asam -4.5, Basa +4.5, Pendingin/Katalis 0.", style);
-
-            if (recipes != null)
-            {
-                for (int i = 0; i < recipes.Count; i++)
-                {
-                    PotionRecipeSO recipe = recipes[i];
-                    if (recipe == null)
-                        continue;
-
-                    string color = ColorUtility.ToHtmlStringRGB(AlchemyDatabase.PotionColor(recipe.potionType));
-
-                    GUILayout.Label(
-                        "<color=#" + color + ">â– </color> <b>" + recipe.ResolvedDisplayName + "</b>" +
-                        " = " + AlchemyDatabase.IngredientName(recipe.ingredientA) +
-                        " + " + AlchemyDatabase.IngredientName(recipe.ingredientB) +
-                        "   <i>(pH " + recipe.minPH.ToString("0.0") + "-" + recipe.maxPH.ToString("0.0") +
-                        ", DMG " + recipe.damage.ToString("0") + ")</i>",
-                        style);
-                }
-            }
-
-            GUILayout.EndArea();
         }
     }
 

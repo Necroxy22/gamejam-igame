@@ -668,6 +668,7 @@ namespace CuriesCrucible.Gameplay
             continueButtonText.alignment = TextAnchor.MiddleCenter;
             continueButtonText.text = "LANJUT  [SPACE]";
             continueButtonText.color = Color.white;
+            continueButtonText.raycastTarget = false;
 
             cardCanvasRoot = canvasGo;
             cardCanvasRoot.SetActive(false);
@@ -710,7 +711,25 @@ namespace CuriesCrucible.Gameplay
             if (_cachedFont != null)
                 return _cachedFont;
 
-            // Prioritas 1: Builtin LegacyRuntime.ttf (standar Unity 2022.3+)
+            // Prioritas 1: Font kustom dari Assets/Resources/Fonts (misal Cinzel)
+            Font[] customFonts = Resources.LoadAll<Font>("Fonts");
+            if (customFonts != null && customFonts.Length > 0)
+            {
+                for (int i = 0; i < customFonts.Length; i++)
+                {
+                    if (customFonts[i] != null)
+                    {
+                        _cachedFont = customFonts[i];
+                        return _cachedFont;
+                    }
+                }
+            }
+
+            _cachedFont = Resources.Load<Font>("Fonts/Cinzel-VariableFont_wght");
+            if (_cachedFont != null)
+                return _cachedFont;
+
+            // Prioritas 2: Builtin LegacyRuntime.ttf (standar Unity 2022.3+)
             _cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             // Prioritas 2: Dynamic font dari OS (Arial 16pt)

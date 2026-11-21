@@ -182,21 +182,21 @@ namespace CuriesCrucible.EditorTools
             Sprite sprite = Arena25DSetup.ArtFactory.EnsureZombiePlaceholder();
 
             result[ZombieType.ZombieAsam] = CreateZombiePrefab(
-                "Zombie_Asam", ZombieType.ZombieAsam, 30, 0.52f, 1, 1.00f, sprite, enemyLayer);
+                "Zombie_Asam", ZombieType.ZombieAsam, 30, 0.15f, 1, 1.00f, sprite, enemyLayer);
 
             result[ZombieType.ZombieBasa] = CreateZombiePrefab(
-                "Zombie_Basa", ZombieType.ZombieBasa, 40, 0.48f, 1, 1.00f, sprite, enemyLayer);
+                "Zombie_Basa", ZombieType.ZombieBasa, 40, 0.12f, 1, 1.00f, sprite, enemyLayer);
 
             result[ZombieType.ZombieApi] = CreateZombiePrefab(
-                "Zombie_Api", ZombieType.ZombieApi, 26, 0.65f, 1, 0.95f, sprite, enemyLayer);
+                "Zombie_Api", ZombieType.ZombieApi, 26, 0.20f, 1, 0.95f, sprite, enemyLayer);
 
             result[ZombieType.ZombieBesi] = CreateZombiePrefab(
-                "Zombie_Besi", ZombieType.ZombieBesi, 65, 0.38f, 2, 1.15f, sprite, enemyLayer);
+                "Zombie_Besi", ZombieType.ZombieBesi, 65, 0.10f, 2, 1.15f, sprite, enemyLayer);
 
             result[ZombieType.BossUnstableAmalgam] = CreateZombiePrefab(
                 "Boss_UnstableAmalgam",
                 ZombieType.BossUnstableAmalgam,
-                550, 0.32f, 5, 1.60f, sprite, enemyLayer);
+                550, 0.08f, 5, 1.60f, sprite, enemyLayer);
 
             return result;
         }
@@ -227,6 +227,15 @@ namespace CuriesCrucible.EditorTools
                         existingFollower.moveSpeed = speed;
                         existingFollower.adjustSpeedByPerspective = true;
                     }
+
+                    var textComp = existing.GetComponentInChildren<UnityEngine.UI.Text>(true);
+                    if (textComp != null)
+                    {
+                        Font customFont = Resources.Load<Font>("Fonts/Cinzel-VariableFont_wght");
+                        if (customFont != null)
+                            textComp.font = customFont;
+                    }
+
                     EditorUtility.SetDirty(existing);
                     return existingEntity;
                 }
@@ -384,7 +393,7 @@ namespace CuriesCrucible.EditorTools
             waves.rightPath = FindTargets.FindPathRoot("Right_Path_Waypoints");
             waves.autoStart = true;
             waves.initialDelay = 8f;
-            waves.betweenWaveDelay = 6f;
+            waves.betweenWaveDelay = 7f;
             waves.waves = BuildWaves(zombies);
 
             // --- Spotlight Intro ---
@@ -429,7 +438,7 @@ namespace CuriesCrucible.EditorTools
             };
             wave0.entries = new[]
             {
-                new WaveSpawnEntry { prefab = basa, count = 3, interval = 1.8f }
+                new WaveSpawnEntry { prefab = basa, count = 3, interval = 5.0f }
             };
             list.Add(wave0);
 
@@ -443,7 +452,7 @@ namespace CuriesCrucible.EditorTools
             };
             wave1.entries = new[]
             {
-                new WaveSpawnEntry { prefab = asam, count = 5, interval = 1.3f }
+                new WaveSpawnEntry { prefab = asam, count = 5, interval = 5.0f }
             };
             list.Add(wave1);
 
@@ -458,9 +467,9 @@ namespace CuriesCrucible.EditorTools
             };
             wave2.entries = new[]
             {
-                new WaveSpawnEntry { prefab = asam, count = 4, interval = 1.1f },
-                new WaveSpawnEntry { prefab = basa, count = 3, interval = 1.1f },
-                new WaveSpawnEntry { prefab = api, count = 2, interval = 1.0f }
+                new WaveSpawnEntry { prefab = asam, count = 4, interval = 5.0f },
+                new WaveSpawnEntry { prefab = basa, count = 3, interval = 5.0f },
+                new WaveSpawnEntry { prefab = api, count = 2, interval = 5.0f }
             };
             list.Add(wave2);
 
@@ -477,10 +486,10 @@ namespace CuriesCrucible.EditorTools
             };
             wave3.entries = new[]
             {
-                new WaveSpawnEntry { prefab = api, count = 3, interval = 0.9f },
-                new WaveSpawnEntry { prefab = besi, count = 2, interval = 1.4f },
-                new WaveSpawnEntry { prefab = basa, count = 3, interval = 1.0f },
-                new WaveSpawnEntry { prefab = asam, count = 2, interval = 0.9f }
+                new WaveSpawnEntry { prefab = api, count = 3, interval = 5.0f },
+                new WaveSpawnEntry { prefab = besi, count = 2, interval = 5.0f },
+                new WaveSpawnEntry { prefab = basa, count = 3, interval = 5.0f },
+                new WaveSpawnEntry { prefab = asam, count = 2, interval = 5.0f }
             };
             list.Add(wave3);
 
@@ -494,8 +503,8 @@ namespace CuriesCrucible.EditorTools
             };
             wave4.entries = new[]
             {
-                new WaveSpawnEntry { prefab = besi, count = 3, interval = 1.5f },
-                new WaveSpawnEntry { prefab = boss, count = 1, interval = 2f, alternatePaths = false }
+                new WaveSpawnEntry { prefab = besi, count = 3, interval = 5.0f },
+                new WaveSpawnEntry { prefab = boss, count = 1, interval = 5.0f, alternatePaths = false }
             };
             list.Add(wave4);
 
@@ -539,7 +548,7 @@ namespace CuriesCrucible.EditorTools
 
             EditorUtility.DisplayDialog(
                 "Zombie Intro Spotlight & Speed Tuning",
-                "Berhasil mengonfigurasi ZombieIntroSpotlight pada Game_Manager dan menyeimbangkan kecepatan zombie (Wave 1 berkisar 20-26 detik, ~0.45 - 0.65 units/detik).",
+                "Berhasil mengonfigurasi ZombieIntroSpotlight pada Game_Manager dan menyeimbangkan tempo game (Spawn interval 5.0 detik, antar-wave 7 detik, dan kecepatan gerak zombie santai ~0.08 - 0.20 units/detik).",
                 "OK");
         }
 

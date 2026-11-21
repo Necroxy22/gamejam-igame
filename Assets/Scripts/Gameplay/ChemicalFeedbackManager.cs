@@ -205,8 +205,20 @@ namespace CuriesCrucible.Gameplay
             if (classicFont != null)
                 return classicFont;
 
+            // Prioritas 1: Font dari Assets/Resources/Fonts/ (misal Cinzel)
+            Font[] customFonts = Resources.LoadAll<Font>("Fonts");
+            if (customFonts != null && customFonts.Length > 0)
+            {
+                for (int i = 0; i < customFonts.Length; i++)
+                {
+                    if (customFonts[i] != null)
+                        return customFonts[i];
+                }
+            }
+
             string[] resourcePaths =
             {
+                "Fonts/Cinzel-VariableFont_wght", "Cinzel-VariableFont_wght",
                 "Fonts/Cinzel", "Fonts/MedievalSharp", "Fonts/Georgia",
                 "Cinzel", "MedievalSharp", "Georgia"
             };

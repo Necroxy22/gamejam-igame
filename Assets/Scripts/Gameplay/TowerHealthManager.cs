@@ -126,24 +126,5 @@ namespace CuriesCrucible.Gameplay
             float t = 1f - NormalizedHealth;
             towerSprite.color = Color.Lerp(normalColor, dangerColor, t);
         }
-
-        // ------------------------------------------------------------------
-        // Overlay
-        // ------------------------------------------------------------------
-
-        void OnGUI()
-        {
-            var style = new GUIStyle(GUI.skin.label);
-            style.richText = true;
-            style.fontSize = 16;
-            style.alignment = TextAnchor.UpperRight;
-
-            string color = IsGameOver ? "#ff5544" : (NormalizedHealth <= 0.4f ? "#ffb03a" : "#8fe38f");
-
-            GUI.Label(
-                new Rect(Screen.width - 320f, 10f, 310f, 60f),
-                "<b>MENARA</b>  <color=" + color + ">" + Health + " / " + maxHealth + "</color>",
-                style);
-        }
     }
 }

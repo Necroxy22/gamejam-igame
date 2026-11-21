@@ -14,8 +14,8 @@ namespace CuriesCrucible.Gameplay
 
         [Min(1)] public int count = 5;
 
-        [Tooltip("Jeda antar spawn (detik).")]
-        [Min(0.1f)] public float interval = 1.2f;
+        [Tooltip("Jeda antar spawn (detik). Default 5.0f agar tempo lebih santai.")]
+        [Min(0.1f)] public float interval = 5.0f;
 
         [Tooltip("Gantian jalur kiri/kanan tiap spawn.")]
         public bool alternatePaths = true;
@@ -79,8 +79,12 @@ namespace CuriesCrucible.Gameplay
 
         [Header("Jadwal")]
         public bool autoStart = true;
-        public float initialDelay = 4f;
-        public float betweenWaveDelay = 6f;
+        [Tooltip("Waktu tunggu awal sebelum wave pertama dimulai (detik).")]
+        public float initialDelay = 8f;
+        [Tooltip("Jeda istirahat antar-wave setelah semua zombie di wave sebelumnya dikalahkan (detik, default 7.0f).")]
+        public float betweenWaveDelay = 7f;
+        [Tooltip("Interval spawn default jika entry tidak menentukan secara spesifik (detik).")]
+        public float spawnInterval = 5.0f;
 
         // ------------------------------------------------------------------
         // Runtime
@@ -239,7 +243,7 @@ namespace CuriesCrucible.Gameplay
             GiveWaveBonuses(wave);
             BuildQueue(wave);
 
-            _spawnTimer = 0.4f;
+            _spawnTimer = 2.0f;
         }
 
         void GiveWaveBonuses(WaveDefinition wave)
@@ -271,12 +275,13 @@ namespace CuriesCrucible.Gameplay
                 for (int i = 0; i < entry.count; i++)
                 {
                     bool useLeft = entry.alternatePaths ? leftSide : entry.startFromLeft;
+                    float itemInterval = entry.interval > 0.1f ? entry.interval : spawnInterval;
 
                     _queue.Add(new SpawnItem
                     {
                         prefab = entry.prefab,
                         leftSide = useLeft,
-                        interval = entry.interval
+                        interval = itemInterval
                     });
 
                     if (entry.alternatePaths)
@@ -408,49 +413,6 @@ namespace CuriesCrucible.Gameplay
         void HandleZombieRemoved(ZombieChemicalEntity zombie)
         {
             AliveZombies = Mathf.Max(0, AliveZombies - 1);
-        }
-
-        // ------------------------------------------------------------------
-        // Overlay
-        // ------------------------------------------------------------------
-
-        void OnGUI()
-        {
-            var style = new GUIStyle(GUI.skin.label);
-            style.richText = true;
-            style.fontSize = 14;
-
-            string title;
-
-            if (IsGameComplete)
-            {
-                title = "<b>SEMUA WAVE SELESAI</b>";
-            }
-            else if (!IsWaveActive && CurrentWaveIndex < 0)
-            {
-                title = "<b>Persiapan...</b>";
-            }
-            else
-            {
-                WaveDefinition wave = CurrentWave;
-                title = "<b>WAVE " + (CurrentWaveIndex + 1) + "/" + TotalWaves + "</b> - " +
-                        (wave != null ? wave.waveName : "");
-            }
-
-            string detail = "Zombie aktif: " + AliveZombies +
-                            "   |   " +
-                            (_waitingForNextWave
-                                ? "Wave berikutnya dalam " + Mathf.CeilToInt(Mathf.Max(0f, _nextWaveTimer)) + "s (Space: mulai sekarang)"
-                                : (IsWaveActive ? "menyusuri jalan..." : ""));
-
-            WaveDefinition current = CurrentWave;
-            if (current != null && !string.IsNullOrEmpty(current.subtitle))
-                detail += "\n<color=#cfd8dc><i>" + current.subtitle + "</i></color>";
-
-            GUILayout.BeginArea(new Rect(10f, 275f, 620f, 100f), GUI.skin.box);
-            GUILayout.Label(title, style);
-            GUILayout.Label(detail, style);
-            GUILayout.EndArea();
         }
     }
 }

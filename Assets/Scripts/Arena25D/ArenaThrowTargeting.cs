@@ -226,10 +226,13 @@ namespace CuriesCrucible.Arena25D
             Vector3 worldPoint = Arena25DMath.ScreenToWorld(_camera, screenPoint, 0f);
             Vector2 world = new Vector2(worldPoint.x, worldPoint.y);
 
-            bool overUi = blockThrowOverUI
+            bool overUi = (blockThrowOverUI
                           && EventSystem.current != null
                           && (EventSystem.current.IsPointerOverGameObject() ||
-                              (Input.touchCount > 0 && EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)));
+                              (Input.touchCount > 0 && EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId))))
+                          || CuriesCrucible.Gameplay.GameplayUIBridge.IsPointerOverHotbar()
+                          || CuriesCrucible.Gameplay.GameplayUIBridge.IsPointerOverCraftPanel()
+                          || CuriesCrucible.Gameplay.GameplayUIBridge.IsCraftPanelOpen();
 
             // Proteksi lemparan: abaikan aiming jika kursor sedang mengarah ke gelembung panen pipa menara
             bool overBubble = CuriesCrucible.Gameplay.TowerPipeHarvester.IsPointerOverBubble();

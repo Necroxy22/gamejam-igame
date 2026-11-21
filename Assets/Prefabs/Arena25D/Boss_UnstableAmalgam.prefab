@@ -206,7 +206,7 @@ MonoBehaviour:
   useCatmullRomSpline: 1
   splineSamplesPerSegment: 24
   loopPath: 0
-  moveSpeed: 0.15
+  moveSpeed: 0.08
   adjustSpeedByPerspective: 1
   fixedZ: 0
   perspectiveBottomY: -4
@@ -270,7 +270,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   zombieType: 4
   maxHealth: 550
-  moveSpeed: 0.18
+  moveSpeed: 0.08
   towerDamage: 5
   acidVulnerability: 0.15
   baseVulnerability: 0.15
@@ -350,7 +350,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_Font: {fileID: 12800000, guid: 19eeb1f5356d21946950e72169db9f95, type: 3}
     m_FontSize: 14
     m_FontStyle: 0
     m_BestFit: 0

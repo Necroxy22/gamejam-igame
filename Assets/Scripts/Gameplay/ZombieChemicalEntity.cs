@@ -25,8 +25,8 @@ namespace CuriesCrucible.Gameplay
 
         [Min(1)] public int maxHealth = 40;
         [SerializeField]
-        [Tooltip("Kecepatan dasar jalan zombie (world units/detik). Di-expose di Inspector agar mudah di-tuning.")]
-        public float moveSpeed = 0.52f;
+        [Tooltip("Kecepatan dasar jalan zombie (world units/detik). Default tempo santai: 0.10f - 0.20f.")]
+        public float moveSpeed = 0.15f;
         [Min(0)] public int towerDamage = 1;
 
         [Header("Afinitas Kimia (pengali damage)")]
@@ -170,6 +170,21 @@ namespace CuriesCrucible.Gameplay
 
             if (follower != null)
                 follower.OnReachedEnd += HandleReachedEnd;
+
+            // Pastikan font teks nama zombie menggunakan font dari Resources/Fonts
+            var nameTexts = GetComponentsInChildren<UnityEngine.UI.Text>(true);
+            if (nameTexts != null && nameTexts.Length > 0)
+            {
+                Font font = ZombieIntroSpotlight.GetSafeFont();
+                if (font != null)
+                {
+                    for (int i = 0; i < nameTexts.Length; i++)
+                    {
+                        if (nameTexts[i] != null)
+                            nameTexts[i].font = font;
+                    }
+                }
+            }
         }
 
         void OnDestroy()
@@ -857,38 +872,6 @@ namespace CuriesCrucible.Gameplay
         {
             Gizmos.color = ZombieDatabase.ColorOf(zombieType);
             Gizmos.DrawWireSphere(transform.position, 0.35f);
-        }
-
-        /// <summary>Label status khusus Boss (HP + Chill stack) supaya mekanik 2 tahap terlihat.</summary>
-        void OnGUI()
-        {
-            if (_dead || zombieType != ZombieType.BossUnstableAmalgam)
-                return;
-
-            Camera camera = Camera.main;
-            if (camera == null)
-                return;
-
-            Vector3 screen = camera.WorldToScreenPoint(transform.position + Vector3.up * 1.5f);
-
-            if (screen.z < 0f)
-                return;
-
-            var style = new GUIStyle(GUI.skin.label);
-            style.fontSize = 13;
-            style.alignment = TextAnchor.MiddleCenter;
-            style.normal.textColor = IsChilled ? new Color(0.6f, 0.95f, 1f) : new Color(1f, 0.55f, 0.95f);
-
-            string status = IsChilled
-                ? "3/3 - SIAP DINETRALKAN!"
-                : (_chillStacks + "/3");
-
-            string text = "BOSS  HP " + _health + "  |  ❄ Chill " + status;
-
-            GUI.Label(
-                new Rect(screen.x - 170f, Screen.height - screen.y - 22f, 340f, 22f),
-                text,
-                style);
         }
     }
 }

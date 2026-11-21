@@ -32,8 +32,8 @@ namespace CuriesCrucible.Arena25D
 
         [Header("Movement")]
         [SerializeField]
-        [Tooltip("Kecepatan dasar jalan zombie (world units/detik). Di-expose di Inspector agar mudah di-tuning.")]
-        public float moveSpeed = 0.52f;
+        [Tooltip("Kecepatan dasar jalan zombie (world units/detik). Default tempo santai: 0.10f - 0.20f.")]
+        public float moveSpeed = 0.15f;
 
         [Tooltip("Menyesuaikan kecepatan jalan dengan perspektif 2.5D (sedikit lebih pelan saat di area jauh/atas).")]
         public bool adjustSpeedByPerspective = true;

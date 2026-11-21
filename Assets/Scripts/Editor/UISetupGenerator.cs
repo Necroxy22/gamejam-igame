@@ -101,8 +101,6 @@ namespace CuriesCrucible.EditorTools
 
                 if (alchemy != null)
                 {
-                    alchemy.showDebugOverlay = false;
-                    alchemy.showRecipeBook = false;
                     EditorUtility.SetDirty(alchemy);
                 }
 
@@ -186,7 +184,7 @@ namespace CuriesCrucible.EditorTools
                         "• Tengah Bawah: Tombol Bulat CRAFTING (C) + 6 Slot Hotbar Ramuan Siap Lempar (dengan highlight slot terpilih)\n" +
                         "• Popup 2-Kolom: Laboratorium Alkimia (Kuali 2-Slot, pH Balance Meter Lerp, BREW/CLEAR + Panduan Resep)\n" +
                         "• Overlays: Main Menu, Pause, Victory, Game Over, Settings & Credits\n" +
-                        "• Debug OnGUI otomatis dinonaktifkan & blockThrowOverUI diaktifkan.",
+                        "• blockThrowOverUI diaktifkan.",
                         "OK");
                 }
 
@@ -1601,7 +1599,17 @@ namespace CuriesCrucible.EditorTools
 
         static Font GetBuiltinFont()
         {
-            Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Font[] customFonts = Resources.LoadAll<Font>("Fonts");
+            if (customFonts != null && customFonts.Length > 0)
+            {
+                for (int i = 0; i < customFonts.Length; i++)
+                {
+                    if (customFonts[i] != null)
+                        return customFonts[i];
+                }
+            }
+
+            Font font = Resources.Load<Font>("Fonts/Cinzel-VariableFont_wght");
             if (font == null)
                 font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font == null)
