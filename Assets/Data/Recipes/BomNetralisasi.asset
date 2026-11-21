@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0b78cbbaf33d67449460aaeed8c21c4, type: 3}
+  m_Name: BomNetralisasi
+  m_EditorClassIdentifier: 
+  potionType: 4
+  displayName: 
+  description: 'Netralisasi asam-basa: damage besar, kunci tahap kedua Boss.'
+  ingredientA: 2
+  ingredientB: 0
+  minPH: 6.5
+  maxPH: 7.5
+  damage: 26
+  radius: 2.4
+  rootDuration: 0
+  slowFactor: 1
+  slowDuration: 0
+  knockback: 0.6
+  bossMultiplier: 4
+  color: {r: 0.85, g: 0.45, b: 0.95, a: 1}
