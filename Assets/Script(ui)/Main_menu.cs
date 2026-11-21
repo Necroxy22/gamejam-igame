@@ -6,13 +6,17 @@ using UnityEngine.SceneManagement;
 public class Main_menu : MonoBehaviour
 {
     public GameObject panelOpsi;
+    public GameObject panelTutorial;
 
     private void Start() {
+        panelTutorial = GameObject.FindWithTag("Tutorial");
         panelOpsi = GameObject.FindWithTag("Opsi");
-        if (panelOpsi != null)
+        if (panelOpsi != null && panelTutorial != null)
         {
             panelOpsi.SetActive(false);
+            panelTutorial.SetActive(false);
         }
+
     }
 
     public void Main(){
@@ -46,5 +50,19 @@ public class Main_menu : MonoBehaviour
     
     public void Back(){
         SceneManager.LoadScene(0);
+    }
+
+    public void Tutorial(){
+        if (panelTutorial != null)
+        {
+            panelTutorial.SetActive(true);
+        }  
+    }
+
+    public void tutupTutorial(){
+        if (panelTutorial != null)
+        {
+            panelTutorial.SetActive(false);
+        }  
     }
 }
