@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Opsi
   - Tutorial
+  - Craft
+  - Pause
   layers:
   - Default
   - TransparentFX

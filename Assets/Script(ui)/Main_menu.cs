@@ -7,6 +7,11 @@ public class Main_menu : MonoBehaviour
 {
     public GameObject panelOpsi;
     public GameObject panelTutorial;
+    public static Main_menu instance;
+
+    void Awake() {
+        instance = this;
+    }
 
     private void Start() {
         panelTutorial = GameObject.FindWithTag("Tutorial");
@@ -45,7 +50,7 @@ public class Main_menu : MonoBehaviour
     }
 
     public void Kredit(){
-        SceneManager.LoadScene(3);
+        SceneManager.LoadScene(2);
     }
     
     public void Back(){
