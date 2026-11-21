@@ -432,7 +432,7 @@ namespace CuriesCrucible.EditorTools
             var wave0 = new WaveDefinition
             {
                 waveName = "Tutorial",
-                subtitle = "Racik ramuan: 1-4 bahan, R untuk brew, klik jalan untuk melempar.",
+                subtitle = "Racik ramuan: C buka Craft_panel, klik kartu RESEP, R untuk brew, klik jalan untuk melempar.",
                 dropMultiplier = 1,
                 bonusPotions = 2
             };

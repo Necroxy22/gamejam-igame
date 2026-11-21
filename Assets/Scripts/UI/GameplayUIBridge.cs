@@ -101,8 +101,12 @@ namespace CuriesCrucible.Gameplay
         [Tooltip("Nonaktifkan input keyboard bawaan AlchemyManager (bridge mengambil alih 1-6/QE/R/F).")]
         public bool takeOverKeyboard = true;
 
-        [Tooltip("Sembunyikan overlay OnGUI debug saat bridge aktif.")]
-        public bool hideLegacyOverlays = true;
+        [Header("Crafting Panel — Laci Buku Resep Geser")]
+        [Tooltip("Lebar laci resep saat terbuka keluar ke kiri (px).")]
+        public float recipeDrawerWidth = 300f;
+
+        [Tooltip("Kecepatan geser laci resep (px/detik, memakai unscaledDeltaTime).")]
+        public float recipeDrawerSpeed = 1600f;
 
         [Tooltip("Nama scene menu utama untuk tombol Quit.")]
         public string mainMenuScene = "Main_Menu";
@@ -121,6 +125,14 @@ namespace CuriesCrucible.Gameplay
         readonly int[] _lastIngredientStock = { -1, -1, -1, -1 };
         readonly int[] _lastPotionStock = { -1, -1, -1, -1, -1, -1 };
         int _lastSelectedSlot = -1;
+
+        // Laci Buku Resep Geser (runtime, dibangun sekali di dalam Craft_panel)
+        RectTransform _recipeDrawer;
+        RectTransform _recipeDrawerTab;
+        Text _recipeDrawerTabLabel;
+        float _recipeDrawerClosedX;
+        bool _recipeDrawerOpen;
+        bool _recipeDrawerBuilt;
 
         const string PrefMusic = "MusicVolume";
         const string PrefSfx = "SFXVolume";
@@ -153,8 +165,7 @@ namespace CuriesCrucible.Gameplay
             AutoWire();
             LoadAudioPrefs();
 
-            if (hideLegacyOverlays)
-                ApplyHideOverlays();
+            ApplyKeyboardTakeover();
 
             if (craftPanel != null) craftPanel.SetActive(false);
             if (optionsPanel != null) optionsPanel.SetActive(false);
@@ -173,7 +184,6 @@ namespace CuriesCrucible.Gameplay
         {
             ResolveManagers();
             AutoWire();
-            ApplyHideOverlays();
 
             WireIngredients();
             WireHotbar();
@@ -186,6 +196,7 @@ namespace CuriesCrucible.Gameplay
         void Update()
         {
             HandleKeyboard();
+            UpdateRecipeDrawer();
             RefreshUI(false);
         }
 
@@ -196,7 +207,7 @@ namespace CuriesCrucible.Gameplay
             if (waves == null) waves = FindObjectOfType<WaveManager>();
         }
 
-        void ApplyHideOverlays()
+        void ApplyKeyboardTakeover()
         {
             if (takeOverKeyboard && alchemy != null)
                 alchemy.keyboardInputEnabled = false;
@@ -240,9 +251,14 @@ namespace CuriesCrucible.Gameplay
                 }
             }
 
-            // R: Racik 1x resep dari slot terpilih
+            // R: Saat Craft_panel terbuka -> geser Laci Buku Resep; jika tertutup -> racik slot aktif.
             if (Input.GetKeyDown(KeyCode.R))
-                DoBrewSelected();
+            {
+                if (craftPanel != null && craftPanel.activeSelf)
+                    ToggleRecipeDrawer();
+                else
+                    DoBrewSelected();
+            }
 
             // Q / E: Pilih slot sebelumnya / berikutnya
             if (Input.GetKeyDown(KeyCode.Q))
@@ -288,30 +304,34 @@ namespace CuriesCrucible.Gameplay
             if (craftPanel == null) return;
 
             bool nextState = !craftPanel.activeSelf;
-            craftPanel.SetActive(nextState);
-            if (nextState)
+            if (!nextState)
             {
-                RectTransform rt = craftPanel.GetComponent<RectTransform>();
-                if (rt != null)
-                {
-                    rt.anchorMin = new Vector2(0.5f, 0.5f);
-                    rt.anchorMax = new Vector2(0.5f, 0.5f);
-                    rt.pivot = new Vector2(0.5f, 0.5f);
-                    rt.anchoredPosition = Vector2.zero;
-                    rt.sizeDelta = new Vector2(800f, 520f);
-                    rt.localScale = Vector3.one;
-                }
-
-                // Pastikan seluruh subpanel utama di dalamnya aktif
-                for (int i = 0; i < craftPanel.transform.childCount; i++)
-                {
-                    craftPanel.transform.GetChild(i).gameObject.SetActive(true);
-                }
-
-                craftPanel.transform.SetAsLastSibling();
-                WireCraftPanel();
-                RefreshCraftPanel();
+                CloseCraftPanel();
+                return;
             }
+
+            craftPanel.SetActive(true);
+
+            RectTransform rt = craftPanel.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = Vector2.zero;
+                rt.sizeDelta = new Vector2(800f, 520f);
+                rt.localScale = Vector3.one;
+            }
+
+            // Pastikan seluruh subpanel utama di dalamnya aktif
+            for (int i = 0; i < craftPanel.transform.childCount; i++)
+            {
+                craftPanel.transform.GetChild(i).gameObject.SetActive(true);
+            }
+
+            craftPanel.transform.SetAsLastSibling();
+            WireCraftPanel();
+            RefreshCraftPanel();
         }
 
         public void OpenCraftPanel()
@@ -350,6 +370,16 @@ namespace CuriesCrucible.Gameplay
         {
             if (craftPanel != null)
                 craftPanel.SetActive(false);
+
+            // Laci resep selalu ikut kembali ke posisi tertutup (sinkron, tanpa coroutine).
+            _recipeDrawerOpen = false;
+            if (_recipeDrawer != null)
+            {
+                Vector2 closedPos = _recipeDrawer.anchoredPosition;
+                closedPos.x = _recipeDrawerClosedX;
+                _recipeDrawer.anchoredPosition = closedPos;
+            }
+            RefreshRecipeDrawerTab();
         }
 
         public void DoBrewFromCauldron()
@@ -414,11 +444,23 @@ namespace CuriesCrucible.Gameplay
             if (!IsCraftPanelOpen())
                 return false;
 
-            RectTransform rt = Instance.craftPanel.GetComponent<RectTransform>();
-            if (rt == null)
-                return false;
+            GameplayUIBridge bridge = Instance;
 
-            return RectTransformUtility.RectangleContainsScreenPoint(rt, Input.mousePosition, null);
+            RectTransform rt = bridge.craftPanel.GetComponent<RectTransform>();
+            if (rt != null && RectTransformUtility.RectangleContainsScreenPoint(rt, Input.mousePosition, null))
+                return true;
+
+            // Laci resep yang meluncur keluar ke kiri (di luar area panel utama).
+            RectTransform drawer = bridge._recipeDrawer;
+            if (drawer != null && RectTransformUtility.RectangleContainsScreenPoint(drawer, Input.mousePosition, null))
+                return true;
+
+            // Tab bookmark di tepi kiri Craft_panel.
+            RectTransform tab = bridge._recipeDrawerTab;
+            if (tab != null && RectTransformUtility.RectangleContainsScreenPoint(tab, Input.mousePosition, null))
+                return true;
+
+            return false;
         }
 
         /// <summary>
@@ -955,6 +997,9 @@ namespace CuriesCrucible.Gameplay
             {
                 SetupCraftIngredientsScroll(leftSub);
             }
+
+            // Laci Buku Resep Geser menempel di sisi kiri Craft_panel.
+            BuildRecipeDrawer(craftRt);
         }
 
         void SetupCraftIngredientsScroll(Transform leftRoot)
@@ -1244,6 +1289,369 @@ namespace CuriesCrucible.Gameplay
                 descText.verticalOverflow = VerticalWrapMode.Overflow;
                 descText.raycastTarget = false;
             }
+        }
+
+        // ------------------------------------------------------------------
+        // Laci Buku Resep Geser (Slide-Out Recipe Drawer) — Tanpa Coroutine
+        // ------------------------------------------------------------------
+
+        const float DrawerTabWidth = 46f;
+        const float DrawerTabHeight = 132f;
+
+        /// <summary>true bila laci resep sedang terbuka (meluncur keluar ke kiri).</summary>
+        public bool IsRecipeDrawerOpen { get { return _recipeDrawerOpen; } }
+
+        void UpdateRecipeDrawer()
+        {
+            if (_recipeDrawer == null)
+                return;
+
+            float targetX = _recipeDrawerOpen ? -(DrawerTabWidth + 4f) : _recipeDrawerClosedX;
+            Vector2 pos = _recipeDrawer.anchoredPosition;
+            pos.x = Mathf.MoveTowards(pos.x, targetX, recipeDrawerSpeed * Time.unscaledDeltaTime);
+            _recipeDrawer.anchoredPosition = pos;
+        }
+
+        /// <summary>Buka / tutup laci resep (tab bookmark atau shortcut R saat crafting).</summary>
+        public void ToggleRecipeDrawer()
+        {
+            if (craftPanel == null || !craftPanel.activeSelf)
+                return;
+
+            if (!_recipeDrawerBuilt)
+                BuildRecipeDrawer(craftPanel.GetComponent<RectTransform>());
+
+            _recipeDrawerOpen = !_recipeDrawerOpen;
+            RefreshRecipeDrawerTab();
+        }
+
+        void RefreshRecipeDrawerTab()
+        {
+            if (_recipeDrawerTabLabel == null)
+                return;
+
+            _recipeDrawerTabLabel.text = _recipeDrawerOpen ? "RESEP\n>" : "<\nRESEP";
+        }
+
+        void BuildRecipeDrawer(RectTransform craftRt)
+        {
+            if (_recipeDrawerBuilt || craftRt == null)
+                return;
+            _recipeDrawerBuilt = true;
+
+            Font font = ZombieIntroSpotlight.GetSafeFont();
+            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+            float panelWidth = craftRt.sizeDelta.x;
+            if (panelWidth < 100f) panelWidth = 800f;
+            float drawerWidth = Mathf.Min(Mathf.Clamp(recipeDrawerWidth, 240f, 420f), panelWidth * 0.55f);
+            _recipeDrawerClosedX = drawerWidth + 2f;
+
+            // --- Jendela kliping (RectMask2D) menempel di tepi kiri Craft_panel ---
+            GameObject winGo = new GameObject("Recipe_Drawer_Window", typeof(RectTransform), typeof(RectMask2D));
+            winGo.layer = 5;
+            winGo.transform.SetParent(craftRt, false);
+            winGo.transform.SetAsFirstSibling();
+
+            RectTransform winRt = (RectTransform)winGo.transform;
+            winRt.anchorMin = new Vector2(0f, 0f);
+            winRt.anchorMax = new Vector2(0f, 1f);
+            winRt.pivot = new Vector2(1f, 0.5f);
+            winRt.anchoredPosition = Vector2.zero;
+            winRt.sizeDelta = new Vector2(drawerWidth + DrawerTabWidth + 20f, -20f);
+            winRt.localScale = Vector3.one;
+
+            // --- Root laci: ScrollRect vertikal + latar ---
+            GameObject drawerGo = new GameObject("Recipe_Drawer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect), typeof(RectMask2D));
+            drawerGo.layer = 5;
+            drawerGo.transform.SetParent(winRt, false);
+
+            _recipeDrawer = (RectTransform)drawerGo.transform;
+            _recipeDrawer.anchorMin = new Vector2(1f, 0f);
+            _recipeDrawer.anchorMax = new Vector2(1f, 1f);
+            _recipeDrawer.pivot = new Vector2(1f, 0.5f);
+            _recipeDrawer.sizeDelta = new Vector2(drawerWidth, -8f);
+            _recipeDrawer.anchoredPosition = new Vector2(_recipeDrawerClosedX, 0f);
+            _recipeDrawer.localScale = Vector3.one;
+
+            Image drawerBg = drawerGo.GetComponent<Image>();
+            drawerBg.color = new Color(0.09f, 0.07f, 0.14f, 0.97f);
+            drawerBg.raycastTarget = true;
+
+            ScrollRect scroll = drawerGo.GetComponent<ScrollRect>();
+            scroll.viewport = _recipeDrawer;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30f;
+            scroll.decelerationRate = 0.12f;
+
+            // --- Content (6 kartu resep) ---
+            GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            contentGo.layer = 5;
+            contentGo.transform.SetParent(_recipeDrawer, false);
+
+            RectTransform contentRt = (RectTransform)contentGo.transform;
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = Vector2.zero;
+            contentRt.localScale = Vector3.one;
+
+            scroll.content = contentRt;
+
+            VerticalLayoutGroup vlg = contentGo.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(10, 10, 12, 12);
+            vlg.spacing = 10f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+
+            ContentSizeFitter csf = contentGo.GetComponent<ContentSizeFitter>();
+            csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            string[] reactions =
+            {
+                "Reaksi saponifikasi & pendinginan eksotermik menghasilkan gel kriogenik yang membekukan pergerakan.",
+                "Asam yang diuapkan lalu didinginkan mengembun menjadi kabut korosif yang melapisi zirah sasaran.",
+                "Pendingin dan katalis memicu kristalisasi kilat: ledakan kristal es yang menghentikan laju reaksi.",
+                "Asam pekat berbantu katalis melarutkan lapisan karat dan zirah besi dalam sekejap.",
+                "Netralisasi asam-basa kuat melepaskan gelombang kejut CO2 dan uap panas.",
+                "Busa sabun mengembang oleh katalis: gelembung kimia mendorong sekaligus memperlambat."
+            };
+
+            string[] targets =
+            {
+                "Efektif: Zombie Api \uD83D\uDD25",
+                "Efektif: Zombie Besi \uD83D\uDEE1\uFE0F",
+                "Efektif: Zombie Asam \uD83E\uDDEA",
+                "Efektif: Zombie Besi \uD83D\uDEE1\uFE0F",
+                "Efektif: Zombie Basa \uD83E\uDED7",
+                "Efektif: Zombie Asam \uD83E\uDDEA"
+            };
+
+            for (int i = 0; i < 6; i++)
+            {
+                IngredientType ingA;
+                IngredientType ingB;
+                AlchemyManager.GetSlotIngredients(i, out ingA, out ingB);
+
+                GameObject cardGo = new GameObject("Recipe_Card_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement), typeof(Button));
+                cardGo.layer = 5;
+                cardGo.transform.SetParent(contentRt, false);
+
+                LayoutElement cardLayout = cardGo.GetComponent<LayoutElement>();
+                cardLayout.preferredHeight = 172f;
+                cardLayout.minHeight = 172f;
+
+                Image cardBg = cardGo.GetComponent<Image>();
+                cardBg.color = Color.white;
+
+                Outline cardOutline = cardGo.AddComponent<Outline>();
+                cardOutline.effectColor = new Color(0.58f, 0.42f, 0.88f, 0.90f);
+                cardOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+                Button cardButton = cardGo.GetComponent<Button>();
+                cardButton.targetGraphic = cardBg;
+
+                Color cardNormal = new Color(0.22f, 0.15f, 0.34f, 0.96f);
+                ColorBlock cardColors = cardButton.colors;
+                cardColors.normalColor = cardNormal;
+                cardColors.highlightedColor = new Color(0.34f, 0.24f, 0.50f, 1f);
+                cardColors.pressedColor = new Color(0.15f, 0.10f, 0.24f, 1f);
+                cardColors.selectedColor = cardNormal;
+                cardColors.disabledColor = new Color(0.20f, 0.20f, 0.20f, 0.50f);
+                cardColors.colorMultiplier = 1f;
+                cardColors.fadeDuration = 0.08f;
+                cardButton.colors = cardColors;
+
+                int slotIndex = i;
+                cardButton.onClick.AddListener(delegate { QuickFillRecipe(slotIndex); });
+
+                // Baris 1: Nama ramuan
+                CreateCardText(cardGo.transform, "Name", font, 10f, 8f, 10f, 22f, 0f,
+                    AlchemyDatabase.PotionName(AlchemyManager.FixedSlotPotions[i]),
+                    14, new Color(1f, 0.88f, 0.48f, 1f), TextAnchor.MiddleLeft, FontStyle.Bold);
+
+                // Baris 2: Formula visual  [hasil] <- [bahan1] + [bahan2]
+                CreateColorBox(cardGo.transform, "Result_Box", new Vector2(10f, -36f), 44f,
+                    AlchemyDatabase.PotionColor(AlchemyManager.FixedSlotPotions[i]));
+
+                CreateCardText(cardGo.transform, "Arrow", font, 56f, 36f, 0f, 44f, 26f,
+                    "\u2190", 20, new Color(0.95f, 0.92f, 0.86f, 1f), TextAnchor.MiddleCenter, FontStyle.Bold);
+
+                CreateColorBox(cardGo.transform, "Ing1_Box", new Vector2(86f, -38f), 40f,
+                    AlchemyDatabase.IngredientColor(ingA));
+
+                CreateCardText(cardGo.transform, "Plus", font, 130f, 36f, 0f, 44f, 18f,
+                    "+", 20, new Color(0.95f, 0.92f, 0.86f, 1f), TextAnchor.MiddleCenter, FontStyle.Bold);
+
+                CreateColorBox(cardGo.transform, "Ing2_Box", new Vector2(152f, -38f), 40f,
+                    AlchemyDatabase.IngredientColor(ingB));
+
+                // Baris 3: Deskripsi reaksi ilmiah singkat
+                CreateCardText(cardGo.transform, "Desc", font, 10f, 84f, 10f, 52f, 0f,
+                    reactions[i], 11, new Color(0.80f, 0.84f, 0.92f, 0.96f), TextAnchor.UpperLeft, FontStyle.Normal);
+
+                // Baris 4: Target efektif / kegunaan monster
+                CreateCardText(cardGo.transform, "Target", font, 10f, 140f, 10f, 24f, 0f,
+                    targets[i], 12, new Color(0.55f, 1f, 0.62f, 1f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            }
+
+            // --- Tab bookmark krem di tepi kiri Craft_panel (selalu terlihat) ---
+            GameObject tabGo = new GameObject("Recipe_Drawer_Tab", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            tabGo.layer = 5;
+            tabGo.transform.SetParent(craftRt, false);
+
+            _recipeDrawerTab = (RectTransform)tabGo.transform;
+            _recipeDrawerTab.anchorMin = new Vector2(0f, 0.5f);
+            _recipeDrawerTab.anchorMax = new Vector2(0f, 0.5f);
+            _recipeDrawerTab.pivot = new Vector2(1f, 0.5f);
+            _recipeDrawerTab.anchoredPosition = new Vector2(-2f, 0f);
+            _recipeDrawerTab.sizeDelta = new Vector2(DrawerTabWidth, DrawerTabHeight);
+            _recipeDrawerTab.localScale = Vector3.one;
+
+            Image tabBg = tabGo.GetComponent<Image>();
+            tabBg.color = new Color(0.961f, 0.886f, 0.722f, 1f); // #F5E2B8
+
+            Outline tabOutline = tabGo.AddComponent<Outline>();
+            tabOutline.effectColor = new Color(0.35f, 0.26f, 0.10f, 0.90f);
+            tabOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            Button tabButton = tabGo.GetComponent<Button>();
+            tabButton.targetGraphic = tabBg;
+            tabButton.onClick.AddListener(ToggleRecipeDrawer);
+
+            GameObject tabLabelGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            tabLabelGo.layer = 5;
+            tabLabelGo.transform.SetParent(tabGo.transform, false);
+
+            RectTransform tabLabelRt = (RectTransform)tabLabelGo.transform;
+            tabLabelRt.anchorMin = Vector2.zero;
+            tabLabelRt.anchorMax = Vector2.one;
+            tabLabelRt.offsetMin = new Vector2(2f, 6f);
+            tabLabelRt.offsetMax = new Vector2(-2f, -6f);
+            tabLabelRt.localScale = Vector3.one;
+
+            _recipeDrawerTabLabel = tabLabelGo.GetComponent<Text>();
+            _recipeDrawerTabLabel.font = font;
+            _recipeDrawerTabLabel.fontSize = 13;
+            _recipeDrawerTabLabel.fontStyle = FontStyle.Bold;
+            _recipeDrawerTabLabel.alignment = TextAnchor.MiddleCenter;
+            _recipeDrawerTabLabel.color = new Color(0.24f, 0.17f, 0.06f, 1f);
+            _recipeDrawerTabLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _recipeDrawerTabLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            _recipeDrawerTabLabel.raycastTarget = false;
+
+            RefreshRecipeDrawerTab();
+        }
+
+        /// <summary>Isi otomatis slot1 &amp; slot2 kuali dari kartu resep yang diklik (jika stok cukup).</summary>
+        void QuickFillRecipe(int slot)
+        {
+            if (alchemy == null) return;
+
+            IngredientType ingA;
+            IngredientType ingB;
+            AlchemyManager.GetSlotIngredients(slot, out ingA, out ingB);
+
+            int[] stock = alchemy.ingredientStock;
+            int idxA = (int)ingA;
+            int idxB = (int)ingB;
+
+            if (stock == null || idxA < 0 || idxB < 0 || idxA >= stock.Length || idxB >= stock.Length)
+                return;
+
+            // Stok efektif = stok dasar + bahan yang otomatis di-refund dari kuali.
+            int availA = stock[idxA];
+            int availB = stock[idxB];
+
+            if (alchemy.slot1Filled && (int)alchemy.slot1 == idxA) availA++;
+            if (alchemy.slot2Filled && (int)alchemy.slot2 == idxA) availA++;
+            if (alchemy.slot1Filled && (int)alchemy.slot1 == idxB) availB++;
+            if (alchemy.slot2Filled && (int)alchemy.slot2 == idxB) availB++;
+
+            if (availA < 1 || availB < 1)
+            {
+                Debug.Log("[RecipeDrawer] Stok bahan tidak cukup untuk meracik " +
+                          AlchemyDatabase.PotionName(AlchemyManager.FixedSlotPotions[slot]));
+                return;
+            }
+
+            SelectSlot(slot);
+            alchemy.SetCauldronSlot(0, ingA);
+            alchemy.SetCauldronSlot(1, ingB);
+
+            RefreshCraftPanel();
+            RefreshUI(true);
+        }
+
+        static Image CreateColorBox(Transform parent, string name, Vector2 topLeftPos, float size, Color color)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.layer = 5;
+            go.transform.SetParent(parent, false);
+
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = topLeftPos;
+            rt.sizeDelta = new Vector2(size, size);
+            rt.localScale = Vector3.one;
+
+            Image img = go.GetComponent<Image>();
+            img.color = color;
+            img.raycastTarget = false;
+
+            Outline outline = go.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            outline.effectDistance = new Vector2(1f, -1f);
+            return img;
+        }
+
+        static void CreateCardText(Transform parent, string name, Font font,
+            float left, float top, float right, float height, float fixedWidth,
+            string content, int fontSize, Color color, TextAnchor alignment, FontStyle style)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            go.layer = 5;
+            go.transform.SetParent(parent, false);
+
+            RectTransform rt = (RectTransform)go.transform;
+            rt.pivot = new Vector2(0f, 1f);
+            rt.localScale = Vector3.one;
+
+            if (fixedWidth > 0f)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(0f, 1f);
+                rt.anchoredPosition = new Vector2(left, -top);
+                rt.sizeDelta = new Vector2(fixedWidth, height);
+            }
+            else
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.offsetMin = new Vector2(left, -(top + height));
+                rt.offsetMax = new Vector2(-right, -top);
+            }
+
+            Text txt = go.GetComponent<Text>();
+            txt.font = font;
+            txt.text = content;
+            txt.fontSize = fontSize;
+            txt.fontStyle = style;
+            txt.color = color;
+            txt.alignment = alignment;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.verticalOverflow = VerticalWrapMode.Overflow;
+            txt.raycastTarget = false;
         }
 
         public void RefreshCraftPanel()

@@ -966,7 +966,7 @@ MonoBehaviour:
   rightPath: {fileID: 1569281113}
   waves:
   - waveName: Tutorial
-    subtitle: 'Racik ramuan: 1-4 bahan, R untuk brew, klik jalan untuk melempar.'
+    subtitle: 'Racik ramuan: C buka Craft_panel, klik kartu RESEP, R untuk brew, klik jalan untuk melempar.'
     entries:
     - prefab: {fileID: 4523768556776940808, guid: 01099fbe99619bc44b6be7b7877b42de, type: 3}
       count: 3
@@ -1386,7 +1386,8 @@ MonoBehaviour:
   musicSource: {fileID: 0}
   sfxSource: {fileID: 0}
   takeOverKeyboard: 1
-  hideLegacyOverlays: 1
+  recipeDrawerWidth: 300
+  recipeDrawerSpeed: 1600
   mainMenuScene: Main_Menu
 --- !u!1 &285452213
 GameObject:
