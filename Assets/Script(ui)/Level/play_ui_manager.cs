@@ -8,9 +8,17 @@ public class play_ui_manager : MonoBehaviour
     public GameObject panelCraft;
     public GameObject panelPause;
     public GameObject panelOpsi;
-    // Start is called before the first frame update
+
     void Start()
     {
+        // Hentikan dan hapus pemutar musik Main Menu saat masuk ke scene Play
+        if (Persistentmusic.instance != null)
+        {
+            GameObject musikMenu = Persistentmusic.instance.gameObject;
+            Persistentmusic.instance = null;
+            Destroy(musikMenu);
+        }
+
         // Pastikan waktu berjalan normal setiap kali level dimulai
         Time.timeScale = 1f;
 
@@ -20,7 +28,6 @@ public class play_ui_manager : MonoBehaviour
         if (panelOpsi != null) panelOpsi.SetActive(false);
     }
 
-    // Update is called once per frame
     void Update()
     {
         
@@ -37,6 +44,7 @@ public class play_ui_manager : MonoBehaviour
             panelCraft.SetActive(false);
         }
     }
+
     public void Pause(){
         if(panelPause != null){
             panelPause.SetActive(true);
