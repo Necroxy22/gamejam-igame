@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using CuriesCrucible.Alchemy;
+using CuriesCrucible.Audio;
 using CuriesCrucible.Player;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace CuriesCrucible.Arena25D
 {
@@ -117,6 +119,9 @@ namespace CuriesCrucible.Arena25D
         public int splashSortingOffset = 40;
 
         [Header("Road Detection")]
+        [Tooltip("PolygonCollider2D area jalan arena. Otomatis dicari jika kosong.")]
+        public Collider2D roadCollider;
+
         [Tooltip("Layer collider jalan (WalkableRoad).")]
         public LayerMask walkableRoadMask;
 
@@ -186,6 +191,13 @@ namespace CuriesCrucible.Arena25D
         {
             _camera = arenaCamera != null ? arenaCamera : Camera.main;
 
+            if (roadCollider == null)
+            {
+                GameObject roadGo = GameObject.Find("Road_Clickable_Area");
+                if (roadGo != null)
+                    roadCollider = roadGo.GetComponent<Collider2D>();
+            }
+
             if (forceQueriesHitTriggers)
                 Physics2D.queriesHitTriggers = true;
         }
@@ -193,7 +205,7 @@ namespace CuriesCrucible.Arena25D
         void Update()
         {
             if (_camera == null)
-                _camera = Camera.main;
+                _camera = arenaCamera != null ? arenaCamera : Camera.main;
 
             _pulsePhase += reticlePulseSpeed * Time.deltaTime;
 
@@ -206,6 +218,44 @@ namespace CuriesCrucible.Arena25D
         // Aiming
         // ------------------------------------------------------------------
 
+        bool CheckPointerOverInteractiveUI()
+        {
+            // 1. Panel gameplay interaktif yang aktif (Craft_panel, Hotbar, Bottom_panel, Top_panel, Pause, Options)
+            if (CuriesCrucible.Gameplay.GameplayUIBridge.IsPointerOverInteractiveUI())
+                return true;
+
+            // 2. Spotlight zombie kartu aktif
+            if (CuriesCrucible.Gameplay.ZombieIntroSpotlight.IsSpotlightActive)
+                return true;
+
+            // 3. Raycast UI selektif: hanya blokir jika menyentuh kontrol Selectable (Button dll)
+            //    Abaikan jika hanya canvas transparan, dimmer, background, dsb.
+            if (EventSystem.current != null)
+            {
+                PointerEventData ped = new PointerEventData(EventSystem.current)
+                {
+                    position = Input.mousePosition
+                };
+                List<RaycastResult> hits = new List<RaycastResult>();
+                EventSystem.current.RaycastAll(ped, hits);
+                for (int i = 0; i < hits.Count; i++)
+                {
+                    GameObject go = hits[i].gameObject;
+                    if (go == null) continue;
+
+                    string n = go.name;
+                    if (n.Contains("Dimmer") || n.Contains("Background") || n.Contains("Canvas") || n.Contains("Overlay") || n.Contains("Cutout"))
+                        continue;
+
+                    // Jika objek atau parent-nya adalah komponen Selectable (Button, Slider, Toggle, etc.)
+                    if (go.GetComponentInParent<Selectable>() != null)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         void UpdateAim()
         {
             if (Time.timeScale <= 0f || CuriesCrucible.Gameplay.ZombieIntroSpotlight.IsSpotlightActive)
@@ -216,53 +266,76 @@ namespace CuriesCrucible.Arena25D
             }
 
             if (_camera == null)
-                _camera = Camera.main;
+                _camera = arenaCamera != null ? arenaCamera : Camera.main;
 
-            // Tanpa kamera, tidak ada yang bisa di-raycast (misal scene belum di-setup).
             if (_camera == null)
                 return;
 
-            Vector3 screenPoint = Input.mousePosition;
-            Vector3 worldPoint = Arena25DMath.ScreenToWorld(_camera, screenPoint, 0f);
-            Vector2 world = new Vector2(worldPoint.x, worldPoint.y);
+            // Pastikan roadCollider terisi
+            if (roadCollider == null)
+            {
+                GameObject roadGo = GameObject.Find("Road_Clickable_Area");
+                if (roadGo != null)
+                    roadCollider = roadGo.GetComponent<Collider2D>();
+            }
 
-            bool overUi = (blockThrowOverUI
-                          && EventSystem.current != null
-                          && (EventSystem.current.IsPointerOverGameObject() ||
-                              (Input.touchCount > 0 && EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId))))
-                          || CuriesCrucible.Gameplay.GameplayUIBridge.IsPointerOverHotbar()
-                          || CuriesCrucible.Gameplay.GameplayUIBridge.IsPointerOverCraftPanel()
-                          || CuriesCrucible.Gameplay.GameplayUIBridge.IsCraftPanelOpen();
+            // Konversi posisi mouse ke koordinat dunia dengan Z terkunci sesuai jarak kamera
+            Vector3 screenPos = Input.mousePosition;
+            screenPos.z = Mathf.Abs(_camera.transform.position.z);
+            Vector2 worldPoint = _camera.ScreenToWorldPoint(screenPos);
+            Vector2 hitPoint = worldPoint;
+
+            // Cek apakah pointer berada di atas UI interaktif
+            bool overUi = blockThrowOverUI && CheckPointerOverInteractiveUI();
 
             // Proteksi lemparan: abaikan aiming jika kursor sedang mengarah ke gelembung panen pipa menara
             bool overBubble = CuriesCrucible.Gameplay.TowerPipeHarvester.IsPointerOverBubble();
 
-            Collider2D roadCollider = null;
-            Vector2 hitPoint = world;
+            bool onRoad = false;
 
-            if (walkableRoadMask.value != 0)
+            // Deteksi jalanan: utamakan OverlapPoint langsung pada PolygonCollider2D jalan
+            if (roadCollider != null && roadCollider.enabled && roadCollider.gameObject.activeInHierarchy)
             {
-                // Raycast titik (direction nol) = "apakah kursor ada di atas collider jalan".
-                RaycastHit2D raycastHit = Physics2D.Raycast(world, Vector2.zero, 0.01f, walkableRoadMask);
-
-                if (raycastHit.collider != null)
+                if (roadCollider.OverlapPoint(worldPoint))
                 {
-                    roadCollider = raycastHit.collider;
-                    hitPoint = raycastHit.point;
+                    onRoad = true;
+                    hitPoint = worldPoint;
                 }
                 else
                 {
-                    // Fallback untuk kondisi project settings tertentu.
-                    roadCollider = Physics2D.OverlapPoint(world, walkableRoadMask);
-
-                    if (roadCollider != null)
-                        hitPoint = roadCollider.ClosestPoint(world);
+                    // Fallback toleransi radius kecil 0.15f agar lekukan sempit di tengah jalur (L6–R6) tidak pernah bolong
+                    int mask = walkableRoadMask.value != 0 ? (int)walkableRoadMask : (1 << roadCollider.gameObject.layer);
+                    Collider2D hit = Physics2D.OverlapCircle(worldPoint, 0.15f, mask);
+                    if (hit != null && hit == roadCollider)
+                    {
+                        onRoad = true;
+                        hitPoint = roadCollider.ClosestPoint(worldPoint);
+                    }
                 }
             }
 
-            bool onRoad = roadCollider != null;
+            // Fallback sekunder jika roadCollider belum terpasang tapi LayerMask tersedia
+            if (!onRoad && walkableRoadMask.value != 0)
+            {
+                Collider2D col = Physics2D.OverlapPoint(worldPoint, walkableRoadMask);
+                if (col != null)
+                {
+                    onRoad = true;
+                    hitPoint = worldPoint;
+                }
+                else
+                {
+                    col = Physics2D.OverlapCircle(worldPoint, 0.15f, walkableRoadMask);
+                    if (col != null)
+                    {
+                        onRoad = true;
+                        hitPoint = col.ClosestPoint(worldPoint);
+                    }
+                }
+            }
+
             _aimValid = onRoad && !overUi && !overBubble;
-            _aimPoint = onRoad ? hitPoint : world;
+            _aimPoint = onRoad ? hitPoint : worldPoint;
 
             if (reticle != null)
             {
@@ -375,6 +448,9 @@ namespace CuriesCrucible.Arena25D
             // Picu animasi lempar Marie Curie.
             if (marie != null)
                 marie.PlayThrowAnimation();
+
+            // Mainkan SFX lempar ramuan
+            GameAudioManager.Instance?.PlayThrowSFX();
         }
 
         MixedPotion CreateFallbackPotion()
@@ -484,6 +560,9 @@ namespace CuriesCrucible.Arena25D
                 : new Color(1f, 0.85f, 0.85f, 0.9f);
 
             SpawnSplash(point, radius, splashColor);
+
+            // Mainkan SFX pecahan botol ramuan saat mengenai tanah/target
+            GameAudioManager.Instance?.PlayGlassBreakSFX();
 
             if (OnImpact != null)
                 OnImpact(point);

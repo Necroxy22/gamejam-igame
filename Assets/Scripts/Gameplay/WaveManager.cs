@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using CuriesCrucible.Alchemy;
 using CuriesCrucible.Arena25D;
+using CuriesCrucible.Audio;
 using UnityEngine;
 
 namespace CuriesCrucible.Gameplay
@@ -81,10 +82,35 @@ namespace CuriesCrucible.Gameplay
         public bool autoStart = true;
         [Tooltip("Waktu tunggu awal sebelum wave pertama dimulai (detik).")]
         public float initialDelay = 8f;
-        [Tooltip("Jeda istirahat antar-wave setelah semua zombie di wave sebelumnya dikalahkan (detik, default 7.0f).")]
-        public float betweenWaveDelay = 7f;
-        [Tooltip("Interval spawn default jika entry tidak menentukan secara spesifik (detik).")]
-        public float spawnInterval = 5.0f;
+        [Tooltip("Jeda persiapan antar-wave setelah semua zombie di wave sebelumnya dikalahkan (detik, default 6.0f).")]
+        public float betweenWaveDelay = 6f;
+        [Tooltip("Interval spawn default (detik).")]
+        public float spawnInterval = 3.0f;
+
+        [Header("Ritme Spawn Bertahap (Pacing Alkimia)")]
+        [Tooltip("Batas maksimal zombie yang boleh hidup bersamaan di arena (default 5). Jika tercapai, timer spawn ditahan.")]
+        public int maxAliveEnemies = 5;
+
+        [Tooltip("Interval dasar spawn pada Wave 1 (detik, default 3.2f).")]
+        public float wave1SpawnInterval = 3.2f;
+
+        [Tooltip("Interval dasar spawn pada Wave terakhir (detik, default 2.2f, tidak boleh di bawah 2.0s).")]
+        public float finalWaveSpawnInterval = 2.2f;
+
+        [Tooltip("Variasi acak tipis interval spawn (+/- detik, misal 0.3f untuk rentang 2.7s - 3.3s pada tempo 3.0s).")]
+        public float spawnIntervalJitter = 0.3f;
+
+        [Header("Tutorial Hook")]
+        [Tooltip("Jika true, WaveManager menahan jalannya wave sampai tutorial selesai.")]
+        public bool isPausedByTutorial = false;
+
+        public void ResumeAfterTutorial()
+        {
+            isPausedByTutorial = false;
+            ResetSpawningState();
+            _nextWaveTimer = 0.5f;
+            _waitingForNextWave = true;
+        }
 
         // ------------------------------------------------------------------
         // Runtime
@@ -94,10 +120,10 @@ namespace CuriesCrucible.Gameplay
         {
             public ZombieChemicalEntity prefab;
             public bool leftSide;
-            public float interval;
         }
 
         readonly List<SpawnItem> _queue = new List<SpawnItem>();
+        readonly List<ZombieChemicalEntity> _activeZombies = new List<ZombieChemicalEntity>();
 
         float _spawnTimer;
         float _nextWaveTimer;
@@ -107,7 +133,14 @@ namespace CuriesCrucible.Gameplay
         public int CurrentWaveIndex { get; private set; }
 
         /// <summary>Jumlah zombie yang masih hidup di arena.</summary>
-        public int AliveZombies { get; private set; }
+        public int AliveZombies
+        {
+            get
+            {
+                _activeZombies.RemoveAll(z => z == null || z.IsDead || !z.gameObject.activeInHierarchy);
+                return _activeZombies.Count;
+            }
+        }
 
         public bool IsWaveActive { get; private set; }
         public bool IsWaitingForNextWave { get { return _waitingForNextWave; } }
@@ -136,11 +169,38 @@ namespace CuriesCrucible.Gameplay
         void OnEnable()
         {
             ZombieChemicalEntity.OnZombieRemoved += HandleZombieRemoved;
+            ResolveReferences();
+            if (tower != null)
+                tower.OnGameOver += HandleTowerGameOver;
         }
 
         void OnDisable()
         {
             ZombieChemicalEntity.OnZombieRemoved -= HandleZombieRemoved;
+            if (tower != null)
+                tower.OnGameOver -= HandleTowerGameOver;
+            ResetSpawningState();
+        }
+
+        void HandleTowerGameOver()
+        {
+            GameAudioManager.Instance?.PlayContinueBGM();
+        }
+
+        void OnDestroy()
+        {
+            ResetSpawningState();
+        }
+
+        public void ResetSpawningState()
+        {
+            StopAllCoroutines();
+            _queue.Clear();
+            _activeZombies.Clear();
+            _spawnTimer = 0f;
+            _nextWaveTimer = 0f;
+            _waitingForNextWave = false;
+            IsWaveActive = false;
         }
 
         void Start()
@@ -148,11 +208,17 @@ namespace CuriesCrucible.Gameplay
             ResolveReferences();
 
             if (autoStart)
+            {
                 _nextWaveTimer = Mathf.Max(0.5f, initialDelay);
+                GameAudioManager.Instance?.PlayMenuBGM();
+            }
         }
 
         void Update()
         {
+            if (isPausedByTutorial)
+                return;
+
             if (IsGameComplete)
                 return;
 
@@ -223,19 +289,23 @@ namespace CuriesCrucible.Gameplay
                 return;
             }
 
-            if (CurrentWaveIndex + 1 >= waves.Count)
+            if (CurrentWaveIndex >= waves.Count - 1)
             {
                 IsGameComplete = true;
                 Debug.Log("[Wave] SEMUA WAVE SELESAI!");
                 return;
             }
 
+            // Bersihkan timer dan antrean lama untuk mencegah double-spawning
+            StopAllCoroutines();
+            _queue.Clear();
+
             CurrentWaveIndex++;
+
             WaveDefinition wave = waves[CurrentWaveIndex];
 
             IsWaveActive = true;
             _waitingForNextWave = false;
-            _queue.Clear();
 
             Debug.Log("[Wave] " + wave.waveName + " dimulai" +
                       (string.IsNullOrEmpty(wave.subtitle) ? "" : " - " + wave.subtitle));
@@ -243,7 +313,11 @@ namespace CuriesCrucible.Gameplay
             GiveWaveBonuses(wave);
             BuildQueue(wave);
 
-            _spawnTimer = 2.0f;
+            // Mainkan BGM pertempuran wave sesuai nomor urut (1-based)
+            GameAudioManager.Instance?.PlayWaveBGM(CurrentWaveIndex + 1);
+
+            // Jeda awal sebelum zombie pertama wave ini muncul (mengikuti tempo wave)
+            _spawnTimer = GetNextSpawnInterval();
         }
 
         void GiveWaveBonuses(WaveDefinition wave)
@@ -260,11 +334,19 @@ namespace CuriesCrucible.Gameplay
 
         void BuildQueue(WaveDefinition wave)
         {
-            if (wave.entries == null)
+            if (wave == null || wave.entries == null)
                 return;
 
             bool leftSide = true;
 
+            int totalWaveLimit = int.MaxValue;
+            if (CurrentWaveIndex == 0)
+            {
+                // Wave 1: batasi jumlah sedikit (maksimal 5 zombie) agar pemain sempat adaptasi & meracik
+                totalWaveLimit = 5;
+            }
+
+            int enqueued = 0;
             for (int e = 0; e < wave.entries.Length; e++)
             {
                 WaveSpawnEntry entry = wave.entries[e];
@@ -272,27 +354,82 @@ namespace CuriesCrucible.Gameplay
                 if (entry == null || entry.prefab == null)
                     continue;
 
-                for (int i = 0; i < entry.count; i++)
+                int count = entry.count;
+                for (int i = 0; i < count; i++)
                 {
+                    if (enqueued >= totalWaveLimit)
+                        break;
+
                     bool useLeft = entry.alternatePaths ? leftSide : entry.startFromLeft;
-                    float itemInterval = entry.interval > 0.1f ? entry.interval : spawnInterval;
 
                     _queue.Add(new SpawnItem
                     {
                         prefab = entry.prefab,
-                        leftSide = useLeft,
-                        interval = itemInterval
+                        leftSide = useLeft
                     });
+
+                    enqueued++;
 
                     if (entry.alternatePaths)
                         leftSide = !leftSide;
                 }
+
+                if (enqueued >= totalWaveLimit)
+                    break;
             }
+
+            // Jika Wave 1 memiliki prefab tetapi jumlah entri di bawah 4 (misal default 3),
+            // tambahkan sampai minimal 4 agar berada di rentang 4–5 zombie
+            if (CurrentWaveIndex == 0 && enqueued < 4 && _queue.Count > 0)
+            {
+                ZombieChemicalEntity fallbackPrefab = _queue[0].prefab;
+                while (enqueued < 4)
+                {
+                    _queue.Add(new SpawnItem
+                    {
+                        prefab = fallbackPrefab,
+                        leftSide = leftSide
+                    });
+                    leftSide = !leftSide;
+                    enqueued++;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Hitung interval jeda spawn zombie berikutnya secara bertahap & ritmis:
+        /// - Wave 1: jeda ~3.2 detik (tempo santai).
+        /// - Wave akhir: jeda minimal ~2.2 detik (meningkat kesulitannya).
+        /// - Variasi acak tipis 2.7f s/d 3.3f detik per spawn pada tempo 3.0s.
+        /// - Clamping ketat: interval tidak pernah di bawah 2.0 detik.
+        /// </summary>
+        public float GetNextSpawnInterval()
+        {
+            float progress = 0f;
+            if (TotalWaves > 1)
+            {
+                progress = Mathf.Clamp01((float)CurrentWaveIndex / (TotalWaves - 1));
+            }
+
+            // Interpolasi jeda dasar dari Wave 1 ke Wave akhir
+            float baseInterval = Mathf.Lerp(wave1SpawnInterval, finalWaveSpawnInterval, progress);
+
+            // Variasi acak tipis (+/- spawnIntervalJitter)
+            float jitter = UnityEngine.Random.Range(-spawnIntervalJitter, spawnIntervalJitter);
+            float calculated = baseInterval + jitter;
+
+            // Jangan pernah di bawah 2.0 detik
+            return Mathf.Max(2.0f, calculated);
         }
 
         void UpdateSpawning()
         {
             if (_queue.Count == 0)
+                return;
+
+            // Batas maksimal zombie hidup bersamaan di arena (maxAliveEnemies).
+            // Jika sudah mencapai batas, tahan timer spawn sampai ada zombie yang mati.
+            if (AliveZombies >= maxAliveEnemies)
                 return;
 
             _spawnTimer -= Time.deltaTime;
@@ -305,7 +442,8 @@ namespace CuriesCrucible.Gameplay
 
             SpawnZombie(item.prefab, item.leftSide);
 
-            _spawnTimer = item.interval;
+            // Jadwalkan spawn berikutnya secara ritmis
+            _spawnTimer = GetNextSpawnInterval();
         }
 
         void SpawnZombie(ZombieChemicalEntity prefab, bool leftSide)
@@ -363,7 +501,7 @@ namespace CuriesCrucible.Gameplay
             ApplyWaveConfig(entity, wave);
             follower.Restart();
 
-            AliveZombies++;
+            _activeZombies.Add(entity);
             OnZombieSpawned?.Invoke(entity);
         }
 
@@ -392,7 +530,10 @@ namespace CuriesCrucible.Gameplay
 
         void CompleteWave()
         {
+            StopAllCoroutines();
             IsWaveActive = false;
+            _queue.Clear();
+            _spawnTimer = 0f;
 
             WaveDefinition wave = CurrentWave;
 
@@ -403,16 +544,21 @@ namespace CuriesCrucible.Gameplay
             {
                 IsGameComplete = true;
                 Debug.Log("[Wave] SEMUA WAVE SELESAI - menara bertahan!");
+                GameAudioManager.Instance?.PlayEndingBGM();
                 return;
             }
 
             _waitingForNextWave = true;
             _nextWaveTimer = Mathf.Max(1f, betweenWaveDelay);
+
+            // Jeda antar-wave / interlude (crafting ramuan)
+            GameAudioManager.Instance?.PlayInterludeBGM();
         }
 
         void HandleZombieRemoved(ZombieChemicalEntity zombie)
         {
-            AliveZombies = Mathf.Max(0, AliveZombies - 1);
+            if (zombie != null)
+                _activeZombies.Remove(zombie);
         }
     }
 }

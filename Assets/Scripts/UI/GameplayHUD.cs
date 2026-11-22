@@ -118,8 +118,8 @@ namespace CuriesCrucible.UI
 
         public void ResolveReferences()
         {
-            if (alchemy == null) alchemy = AlchemyManager.Instance ?? FindObjectOfType<AlchemyManager>();
-            if (tower == null) tower = TowerHealthManager.Instance ?? FindObjectOfType<TowerHealthManager>();
+            if (alchemy == null) alchemy = AlchemyManager.Instance.Ensure(() => FindObjectOfType<AlchemyManager>());
+            if (tower == null) tower = TowerHealthManager.Instance.Ensure(() => FindObjectOfType<TowerHealthManager>());
             if (waveManager == null) waveManager = FindObjectOfType<WaveManager>();
             if (targeting == null) targeting = FindObjectOfType<ArenaThrowTargeting>();
             if (uiManager == null) uiManager = FindObjectOfType<UIManager>();

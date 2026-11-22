@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CuriesCrucible.Alchemy;
+using CuriesCrucible.UI;
 using UnityEngine;
 
 namespace CuriesCrucible.Gameplay
@@ -21,6 +22,9 @@ namespace CuriesCrucible.Gameplay
     public class TowerPipeHarvester : MonoBehaviour
     {
         public static TowerPipeHarvester Instance { get; private set; }
+
+        /// <summary>Event terpanggil saat pemain berhasil memanen salah satu gelembung pipa.</summary>
+        public static event Action<IngredientType> OnIngredientHarvested;
 
         [System.Serializable]
         public class HarvestPipe
@@ -153,7 +157,7 @@ namespace CuriesCrucible.Gameplay
         public void ResolveReferences()
         {
             if (alchemy == null)
-                alchemy = AlchemyManager.Instance ?? FindObjectOfType<AlchemyManager>();
+                alchemy = AlchemyManager.Instance.Ensure(() => FindObjectOfType<AlchemyManager>());
 
             if (arenaCamera == null)
                 arenaCamera = Camera.main;
@@ -400,6 +404,22 @@ namespace CuriesCrucible.Gameplay
             Color textCol = AlchemyDatabase.IngredientColor(pipe.ingredientType);
 
             SpawnFloatingFeedback(pipe, "+1 " + shortName, textCol);
+
+            // Picu event panen untuk tutorial & listener lainnya
+            if (OnIngredientHarvested != null)
+                OnIngredientHarvested(pipe.ingredientType);
+        }
+
+        /// <summary>Paksa munculkan gelembung panen untuk jenis bahan tertentu (berguna untuk tutorial / testing).</summary>
+        public void ForceSpawnBubble(IngredientType type)
+        {
+            for (int i = 0; i < pipes.Count; i++)
+            {
+                if (pipes[i] != null && pipes[i].ingredientType == type)
+                {
+                    ActivateBubble(pipes[i]);
+                }
+            }
         }
 
         string GetShortIngredientName(IngredientType type)

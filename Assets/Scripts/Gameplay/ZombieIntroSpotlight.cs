@@ -25,6 +25,9 @@ namespace CuriesCrucible.Gameplay
         /// <summary>Apakah spotlight kamera & kartu info sedang aktif.</summary>
         public static bool IsSpotlightActive { get; private set; }
 
+        /// <summary>Ditahan saat PrologueTutorialManager sedang aktif agar tidak bentrok.</summary>
+        public static bool IsPausedByTutorial { get; set; } = false;
+
         [Header("Referensi Kamera")]
         public Camera mainCamera;
         public Arena25DCameraRig cameraRig;
@@ -44,16 +47,55 @@ namespace CuriesCrucible.Gameplay
         [Tooltip("SpriteRenderer BG_Arena untuk batas clamp kamera. Kosongkan untuk deteksi otomatis.")]
         public SpriteRenderer arenaBackground;
 
-        [Header("UI Kartu Quick Info")]
+        [Header("UI Kartu Quick Info (Customizable)")]
         [Tooltip("Canvas overlay kartu info. Jika kosong, dibuat otomatis secara runtime.")]
         public GameObject cardCanvasRoot;
         public RectTransform cardFrameRect;
-        public Text headerBannerText;
-        public Text zombieTitleText;
-        public Text weaknessBodyText;
-        public Text tabooBodyText;
-        public Text continueButtonText;
+        public TMPro.TextMeshProUGUI headerBannerText;
+        public TMPro.TextMeshProUGUI zombieTitleText;
+        public TMPro.TextMeshProUGUI zombieSubtitleText;
+        public TMPro.TextMeshProUGUI weaknessBodyText;
+        public TMPro.TextMeshProUGUI tabooBodyText;
+        public TMPro.TextMeshProUGUI continueButtonText;
         public Button continueButton;
+
+        [Header("Kartu — Tampilan Bisa Dikustomisasi")]
+        [Tooltip("Sprite latar bingkai kartu. Kosong = warna solid (cardBackgroundColor).")]
+        public Sprite cardBackgroundSprite;
+        public Color cardBackgroundColor = new Color(0.12f, 0.08f, 0.05f, 0.95f);
+        [Tooltip("Warna garis tepi (Outline) kartu.")]
+        public Color borderColor = new Color(0.80f, 0.62f, 0.28f);
+        public Vector2 borderDistance = new Vector2(2f, -2f);
+
+        [Tooltip("Sprite latar tombol Lanjut. Kosong = warna solid (continueButtonColor).")]
+        public Sprite continueButtonSprite;
+        public Color continueButtonColor = new Color(0.22f, 0.58f, 0.28f);
+
+        [Tooltip("Label tombol default untuk semua zombie (boleh dikosongkan per-zombie).")]
+        public string defaultContinueLabel = "LANJUT  [SPACE]";
+
+        [Header("Kartu — Warna Teks (Bisa Dikustomisasi)")]
+        [Tooltip("Warna teks banner header (• CATATAN LABORATORIUM ...).")]
+        public Color headerTextColor = new Color(0.96f, 0.82f, 0.44f, 1f);
+        [Tooltip("Warna judul. Dipakai bila titleColor pada data zombie masih transparan.")]
+        public Color titleTextColor = new Color(1f, 1f, 1f, 1f);
+        [Tooltip("Warna subjudul / deskripsi kimia singkat.")]
+        public Color subtitleTextColor = new Color(0.85f, 0.80f, 0.70f, 0.95f);
+        [Tooltip("Warna teks isi kotak kelemahan & pantangan.")]
+        public Color bodyTextColor = new Color(0.95f, 0.91f, 0.82f, 0.98f);
+        [Tooltip("Warna label tombol LANJUT.")]
+        public Color continueTextColor = new Color(1f, 1f, 1f, 1f);
+
+        [Header("Kartu — Ukuran Teks (TextMeshPro)")]
+        public float headerFontSize = 16f;
+        public float titleFontSize = 24f;
+        public float subtitleFontSize = 15f;
+        public float bodyFontSize = 15f;
+        public float buttonFontSize = 17f;
+
+        [Header("Kartu — Data per Jenis Zombie")]
+        [Tooltip("Urutan: 0=Asam, 1=Basa, 2=Api, 3=Besi, 4=Boss. Teks kosong = memakai data bawaan.")]
+        public ZombieIntroCardData[] cardData = new ZombieIntroCardData[5];
 
         enum SpotlightState
         {
@@ -184,6 +226,10 @@ namespace CuriesCrucible.Gameplay
             if (zombie == null)
                 return;
 
+            // Tahan bila tutorial prolog sedang berjalan
+            if (IsPausedByTutorial || (PrologueTutorialManager.Instance != null && PrologueTutorialManager.Instance.CurrentState != PrologueState.Completed && PrologueTutorialManager.Instance.CurrentState != PrologueState.NotStarted))
+                return;
+
             // Jika tipe zombie ini belum pernah diperkenalkan dalam sesi ini
             if (!_introducedTypes.Contains(zombie.zombieType))
             {
@@ -194,6 +240,10 @@ namespace CuriesCrucible.Gameplay
 
         void Update()
         {
+            // Jangan memproses queue jika sedang ditahan oleh tutorial prolog
+            if (IsPausedByTutorial || (PrologueTutorialManager.Instance != null && PrologueTutorialManager.Instance.CurrentState != PrologueState.Completed && PrologueTutorialManager.Instance.CurrentState != PrologueState.NotStarted))
+                return;
+
             // Ambil kandidat dari antrean jika sedang Idle
             if (_state == SpotlightState.Idle && _pendingQueue.Count > 0)
             {
@@ -404,31 +454,105 @@ namespace CuriesCrucible.Gameplay
                 return;
 
             EnsureCardUI();
-            RefreshFonts();
 
             ZombieType type = _targetZombie.zombieType;
             ZombieSpotlightInfo info = GetZombieInfo(type);
+            ZombieIntroCardData data = ResolveCardData(type);
 
             if (zombieTitleText != null)
             {
-                zombieTitleText.text = info.NameAndNature;
-                zombieTitleText.color = info.AccentColor;
+                zombieTitleText.text = data.title;
+                zombieTitleText.color = data.titleColor.a > 0f ? data.titleColor : info.AccentColor;
+            }
+
+            if (zombieSubtitleText != null)
+            {
+                bool hasSubtitle = !string.IsNullOrEmpty(data.subtitle);
+                zombieSubtitleText.gameObject.SetActive(hasSubtitle);
+                if (hasSubtitle)
+                    zombieSubtitleText.text = data.subtitle;
             }
 
             if (weaknessBodyText != null)
-            {
-                weaknessBodyText.text = info.EffectivePotion;
-            }
+                weaknessBodyText.text = data.weaknessText;
 
             if (tabooBodyText != null)
-            {
-                tabooBodyText.text = info.TabooAndMutationRisk;
-            }
+                tabooBodyText.text = data.mutationRiskText;
+
+            if (continueButtonText != null)
+                continueButtonText.text = data.buttonLabel;
 
             UpdateCardPosition();
 
             if (cardCanvasRoot != null)
                 cardCanvasRoot.SetActive(true);
+        }
+
+        /// <summary>
+        /// Ambil data kartu dari Inspector. Field teks kosong otomatis diisi dari
+        /// ensiklopedia bawaan (hanya sebagai fallback, tidak menimpa isian user).
+        /// </summary>
+        ZombieIntroCardData ResolveCardData(ZombieType type)
+        {
+            ZombieSpotlightInfo info = GetZombieInfo(type);
+            int index = (int)type;
+
+            ZombieIntroCardData data = null;
+            if (cardData != null && index >= 0 && index < cardData.Length)
+                data = cardData[index];
+
+            if (data == null)
+                data = new ZombieIntroCardData();
+
+            if (string.IsNullOrEmpty(data.title)) data.title = info.NameAndNature;
+            if (string.IsNullOrEmpty(data.subtitle)) data.subtitle = info.ChemicalDescription;
+            if (string.IsNullOrEmpty(data.chemicalDescription)) data.chemicalDescription = info.ChemicalDescription;
+            if (string.IsNullOrEmpty(data.weaknessText)) data.weaknessText = info.EffectivePotion;
+            if (string.IsNullOrEmpty(data.mutationRiskText)) data.mutationRiskText = info.TabooAndMutationRisk;
+            if (string.IsNullOrEmpty(data.buttonLabel))
+                data.buttonLabel = string.IsNullOrEmpty(defaultContinueLabel) ? "LANJUT  [SPACE]" : defaultContinueLabel;
+
+            return data;
+        }
+
+        /// <summary>Susun array data bawaan (5 jenis zombie) untuk field Inspector.</summary>
+        static ZombieIntroCardData[] CreateDefaultCardData()
+        {
+            var result = new ZombieIntroCardData[5];
+            for (int i = 0; i < 5; i++)
+            {
+                ZombieType type = (ZombieType)i;
+                ZombieSpotlightInfo info = GetZombieInfo(type);
+                result[i] = new ZombieIntroCardData
+                {
+                    title = info.NameAndNature,
+                    subtitle = info.ChemicalDescription,
+                    chemicalDescription = info.ChemicalDescription,
+                    weaknessText = info.EffectivePotion,
+                    mutationRiskText = info.TabooAndMutationRisk,
+                    buttonLabel = "LANJUT  [SPACE]"
+                };
+            }
+            return result;
+        }
+
+        /// <summary>Pastikan array cardData selalu 5 elemen (satu per ZombieType).</summary>
+        void EnsureCardDataArray()
+        {
+            if (cardData != null && cardData.Length == 5)
+            {
+                for (int i = 0; i < 5; i++)
+                    if (cardData[i] == null) cardData[i] = new ZombieIntroCardData();
+                return;
+            }
+
+            ZombieIntroCardData[] defaults = CreateDefaultCardData();
+            if (cardData != null)
+            {
+                for (int i = 0; i < cardData.Length && i < 5; i++)
+                    defaults[i] = cardData[i] ?? defaults[i];
+            }
+            cardData = defaults;
         }
 
         void HideCardUI()
@@ -495,9 +619,14 @@ namespace CuriesCrucible.Gameplay
         {
             if (cardCanvasRoot != null)
             {
-                RefreshFonts();
+                // Instance sudah ada (mis. dipasang permanen di scene): cukup synkronkan
+                // data dari Inspector, jangan bangun ulang / menimpa kustomisasi user.
+                EnsureCardDataArray();
+                SyncCardVisualsFromConfig();
                 return;
             }
+
+            EnsureCardDataArray();
 
             // Buat Canvas UI Overlay mandiri khusus Spotlight (sorting order 150)
             GameObject canvasGo = new GameObject("Zombie_Spotlight_Canvas");
@@ -519,8 +648,9 @@ namespace CuriesCrucible.Gameplay
             SetStretchFull(dimmer.GetComponent<RectTransform>());
             var imgDimmer = dimmer.AddComponent<Image>();
             imgDimmer.color = new Color(0.02f, 0.01f, 0.00f, 0.35f);
+            imgDimmer.raycastTarget = false; // Wajib false agar tidak memblokir aim lemparan di arena
 
-            // Modal Board Outer Frame (Bingkai Kuningan Victorian Melayang di Atas Zombie)
+            // Modal Board Outer Frame (bingkai melayang di atas zombie)
             GameObject boardOuter = CreateUIObject("Spotlight_Card_Frame", dimmer.transform);
             cardFrameRect = boardOuter.GetComponent<RectTransform>();
             cardFrameRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -529,9 +659,13 @@ namespace CuriesCrucible.Gameplay
             cardFrameRect.sizeDelta = new Vector2(500, 340);
 
             var imgOuter = boardOuter.AddComponent<Image>();
-            imgOuter.color = UITheme.BrassBase; // Bingkai Kuningan Victorian
+            imgOuter.color = UITheme.BrassBase;
 
-            // Modal Board Inner (Polished Dark Wood Base)
+            Outline outerOutline = boardOuter.AddComponent<Outline>();
+            outerOutline.effectColor = borderColor;
+            outerOutline.effectDistance = borderDistance;
+
+            // Modal Board Inner (latar kartu)
             GameObject board = CreateUIObject("Spotlight_Card_Inner", boardOuter.transform);
             RectTransform rtBoard = board.GetComponent<RectTransform>();
             SetStretchFull(rtBoard);
@@ -539,25 +673,23 @@ namespace CuriesCrucible.Gameplay
             rtBoard.offsetMax = new Vector2(-4, -4);
 
             var imgBoard = board.AddComponent<Image>();
-            imgBoard.color = UITheme.WoodDark; // Mahoni Tua
+            imgBoard.color = cardBackgroundColor;
 
-            Font font = GetSafeFont();
-
-            // Header Banner Ornamen Kuningan
+            // Header Banner
             GameObject bannerGo = CreateUIObject("Header_Banner", board.transform);
             RectTransform rtBanner = bannerGo.GetComponent<RectTransform>();
             rtBanner.anchorMin = new Vector2(0, 1);
             rtBanner.anchorMax = new Vector2(1, 1);
             rtBanner.pivot = new Vector2(0.5f, 1);
             rtBanner.anchoredPosition = new Vector2(0, -10);
-            rtBanner.sizeDelta = new Vector2(0, 22);
-            headerBannerText = bannerGo.AddComponent<Text>();
-            headerBannerText.font = font;
-            headerBannerText.fontSize = 12;
-            headerBannerText.fontStyle = FontStyle.Bold;
-            headerBannerText.alignment = TextAnchor.MiddleCenter;
-            headerBannerText.text = "✦ CATATAN LABORATORIUM : MUTAN BARU ✦";
-            headerBannerText.color = UITheme.BrassBright;
+            rtBanner.sizeDelta = new Vector2(0, 28);
+            headerBannerText = UITextUtil.CreateText(bannerGo.transform, "Txt", headerFontSize);
+            SetStretchFull(headerBannerText.rectTransform);
+            headerBannerText.fontStyle = TMPro.FontStyles.Bold;
+            headerBannerText.alignment = TMPro.TextAlignmentOptions.Center;
+            headerBannerText.text = "• CATATAN LABORATORIUM : MUTAN BARU •";
+            headerBannerText.color = headerTextColor;
+            headerBannerText.raycastTarget = false;
 
             // Zombie Name & Chemical Nature
             GameObject titleGo = CreateUIObject("Zombie_Title", board.transform);
@@ -565,23 +697,38 @@ namespace CuriesCrucible.Gameplay
             rtTitle.anchorMin = new Vector2(0, 1);
             rtTitle.anchorMax = new Vector2(1, 1);
             rtTitle.pivot = new Vector2(0.5f, 1);
-            rtTitle.anchoredPosition = new Vector2(0, -32);
-            rtTitle.sizeDelta = new Vector2(0, 26);
-            zombieTitleText = titleGo.AddComponent<Text>();
-            zombieTitleText.font = font;
-            zombieTitleText.fontSize = 15;
-            zombieTitleText.fontStyle = FontStyle.Bold;
-            zombieTitleText.alignment = TextAnchor.MiddleCenter;
+            rtTitle.anchoredPosition = new Vector2(0, -40);
+            rtTitle.sizeDelta = new Vector2(0, 32);
+            zombieTitleText = UITextUtil.CreateText(titleGo.transform, "Txt", titleFontSize);
+            SetStretchFull(zombieTitleText.rectTransform);
+            zombieTitleText.fontStyle = TMPro.FontStyles.Bold;
+            zombieTitleText.alignment = TMPro.TextAlignmentOptions.Center;
             zombieTitleText.text = "Zombie...";
+            zombieTitleText.color = titleTextColor;
+            zombieTitleText.raycastTarget = false;
 
-            // Kotak 1: Kelemahan (Suka / Efektif)
+            // Subjudul (opsional, disembunyikan bila kosong)
+            GameObject subGo = CreateUIObject("Zombie_Subtitle", board.transform);
+            RectTransform rtSub = subGo.GetComponent<RectTransform>();
+            rtSub.anchorMin = new Vector2(0, 1);
+            rtSub.anchorMax = new Vector2(1, 1);
+            rtSub.pivot = new Vector2(0.5f, 1);
+            rtSub.anchoredPosition = new Vector2(0, -74);
+            rtSub.sizeDelta = new Vector2(0, 24);
+            zombieSubtitleText = UITextUtil.CreateText(subGo.transform, "Txt", subtitleFontSize);
+            SetStretchFull(zombieSubtitleText.rectTransform);
+            zombieSubtitleText.alignment = TMPro.TextAlignmentOptions.Center;
+            zombieSubtitleText.color = subtitleTextColor;
+            zombieSubtitleText.raycastTarget = false;
+
+            // Kotak 1: Kelemahan (Efektif)
             GameObject boxWeak = CreateUIObject("Box_Weakness", board.transform);
             RectTransform rtWeak = boxWeak.GetComponent<RectTransform>();
             rtWeak.anchorMin = new Vector2(0.5f, 1);
             rtWeak.anchorMax = new Vector2(0.5f, 1);
             rtWeak.pivot = new Vector2(0.5f, 1);
-            rtWeak.anchoredPosition = new Vector2(0, -62);
-            rtWeak.sizeDelta = new Vector2(464, 96);
+            rtWeak.anchoredPosition = new Vector2(0, -102);
+            rtWeak.sizeDelta = new Vector2(464, 82);
 
             var imgWeakBorder = boxWeak.AddComponent<Image>();
             imgWeakBorder.color = UITheme.BrassDark;
@@ -591,26 +738,24 @@ namespace CuriesCrucible.Gameplay
             boxWeakInner.GetComponent<RectTransform>().offsetMin = new Vector2(2, 2);
             boxWeakInner.GetComponent<RectTransform>().offsetMax = new Vector2(-2, -2);
             var imgWeakInner = boxWeakInner.AddComponent<Image>();
-            imgWeakInner.color = new Color(0.08f, 0.16f, 0.09f, 0.95f); // Deep emerald inset
+            imgWeakInner.color = new Color(0.08f, 0.16f, 0.09f, 0.95f);
 
-            weaknessBodyText = CreateUIObject("Txt", boxWeakInner.transform).AddComponent<Text>();
-            SetStretchFull(weaknessBodyText.GetComponent<RectTransform>());
-            weaknessBodyText.GetComponent<RectTransform>().offsetMin = new Vector2(10, 6);
-            weaknessBodyText.GetComponent<RectTransform>().offsetMax = new Vector2(-10, -6);
-            weaknessBodyText.font = font;
-            weaknessBodyText.fontSize = 11;
-            weaknessBodyText.lineSpacing = 1.15f;
-            weaknessBodyText.color = UITheme.ParchmentBg;
-            weaknessBodyText.supportRichText = true;
+            weaknessBodyText = UITextUtil.CreateText(boxWeakInner.transform, "Txt", bodyFontSize);
+            SetStretchFull(weaknessBodyText.rectTransform);
+            weaknessBodyText.rectTransform.offsetMin = new Vector2(10, 6);
+            weaknessBodyText.rectTransform.offsetMax = new Vector2(-10, -6);
+            weaknessBodyText.fontStyle = TMPro.FontStyles.Normal;
+            weaknessBodyText.color = bodyTextColor;
+            weaknessBodyText.raycastTarget = false;
 
-            // Kotak 2: Pantangan (Jangan Dikasih / Risiko Mutasi)
+            // Kotak 2: Pantangan (Risiko Mutasi)
             GameObject boxTaboo = CreateUIObject("Box_Taboo", board.transform);
             RectTransform rtTaboo = boxTaboo.GetComponent<RectTransform>();
             rtTaboo.anchorMin = new Vector2(0.5f, 1);
             rtTaboo.anchorMax = new Vector2(0.5f, 1);
             rtTaboo.pivot = new Vector2(0.5f, 1);
-            rtTaboo.anchoredPosition = new Vector2(0, -164);
-            rtTaboo.sizeDelta = new Vector2(464, 96);
+            rtTaboo.anchoredPosition = new Vector2(0, -190);
+            rtTaboo.sizeDelta = new Vector2(464, 82);
 
             var imgTabooBorder = boxTaboo.AddComponent<Image>();
             imgTabooBorder.color = UITheme.BrassDark;
@@ -620,36 +765,34 @@ namespace CuriesCrucible.Gameplay
             boxTabooInner.GetComponent<RectTransform>().offsetMin = new Vector2(2, 2);
             boxTabooInner.GetComponent<RectTransform>().offsetMax = new Vector2(-2, -2);
             var imgTabooInner = boxTabooInner.AddComponent<Image>();
-            imgTabooInner.color = new Color(0.20f, 0.08f, 0.07f, 0.95f); // Deep maroon crimson inset
+            imgTabooInner.color = new Color(0.20f, 0.08f, 0.07f, 0.95f);
 
-            tabooBodyText = CreateUIObject("Txt", boxTabooInner.transform).AddComponent<Text>();
-            SetStretchFull(tabooBodyText.GetComponent<RectTransform>());
-            tabooBodyText.GetComponent<RectTransform>().offsetMin = new Vector2(10, 6);
-            tabooBodyText.GetComponent<RectTransform>().offsetMax = new Vector2(-10, -6);
-            tabooBodyText.font = font;
-            tabooBodyText.fontSize = 11;
-            tabooBodyText.lineSpacing = 1.15f;
-            tabooBodyText.color = UITheme.ParchmentBg;
-            tabooBodyText.supportRichText = true;
+            tabooBodyText = UITextUtil.CreateText(boxTabooInner.transform, "Txt", bodyFontSize);
+            SetStretchFull(tabooBodyText.rectTransform);
+            tabooBodyText.rectTransform.offsetMin = new Vector2(10, 6);
+            tabooBodyText.rectTransform.offsetMax = new Vector2(-10, -6);
+            tabooBodyText.fontStyle = TMPro.FontStyles.Normal;
+            tabooBodyText.color = bodyTextColor;
+            tabooBodyText.raycastTarget = false;
 
-            // Tombol LANJUT [SPACE]
+            // Tombol LANJUT
             GameObject btnGo = CreateUIObject("Btn_Continue", board.transform);
             RectTransform rtBtn = btnGo.GetComponent<RectTransform>();
             rtBtn.anchorMin = new Vector2(0.5f, 0);
             rtBtn.anchorMax = new Vector2(0.5f, 0);
             rtBtn.pivot = new Vector2(0.5f, 0);
             rtBtn.anchoredPosition = new Vector2(0, 12);
-            rtBtn.sizeDelta = new Vector2(240, 38);
+            rtBtn.sizeDelta = new Vector2(240, 40);
 
             var imgBtnFrame = btnGo.AddComponent<Image>();
-            imgBtnFrame.color = UITheme.BrassBright; // Border tombol emas kuningan
+            imgBtnFrame.color = UITheme.BrassBright;
 
             GameObject btnInner = CreateUIObject("Btn_Inner", btnGo.transform);
             SetStretchFull(btnInner.GetComponent<RectTransform>());
             btnInner.GetComponent<RectTransform>().offsetMin = new Vector2(2, 2);
             btnInner.GetComponent<RectTransform>().offsetMax = new Vector2(-2, -2);
             var imgBtnInner = btnInner.AddComponent<Image>();
-            imgBtnInner.color = UITheme.BrewButtonNormal; // Emerald brew green
+            imgBtnInner.color = continueButtonColor;
 
             continueButton = btnGo.AddComponent<Button>();
             continueButton.targetGraphic = imgBtnInner;
@@ -660,28 +803,127 @@ namespace CuriesCrucible.Gameplay
             continueButton.colors = colors;
             continueButton.onClick.AddListener(OnContinueClicked);
 
-            continueButtonText = CreateUIObject("Txt", btnInner.transform).AddComponent<Text>();
-            SetStretchFull(continueButtonText.GetComponent<RectTransform>());
-            continueButtonText.font = font;
-            continueButtonText.fontSize = 13;
-            continueButtonText.fontStyle = FontStyle.Bold;
-            continueButtonText.alignment = TextAnchor.MiddleCenter;
-            continueButtonText.text = "LANJUT  [SPACE]";
-            continueButtonText.color = Color.white;
+            continueButtonText = UITextUtil.CreateText(btnInner.transform, "Txt", buttonFontSize);
+            SetStretchFull(continueButtonText.rectTransform);
+            continueButtonText.fontStyle = TMPro.FontStyles.Bold;
+            continueButtonText.alignment = TMPro.TextAlignmentOptions.Center;
+            continueButtonText.text = string.IsNullOrEmpty(defaultContinueLabel) ? "LANJUT  [SPACE]" : defaultContinueLabel;
+            continueButtonText.color = continueTextColor;
             continueButtonText.raycastTarget = false;
 
             cardCanvasRoot = canvasGo;
             cardCanvasRoot.SetActive(false);
+
+            SyncCardVisualsFromConfig();
         }
 
-        void RefreshFonts()
+        /// <summary>
+        /// API Editor: isi <see cref="cardData"/> (5 jenis zombie) dengan teks bawaan bila
+        /// masih kosong, agar seluruh teks langsung terlihat dan bisa diedit di Inspector.
+        /// Tidak pernah menimpa teks yang sudah diisi user.
+        /// </summary>
+        public void EditorPopulateCardDataDefaults()
         {
-            Font font = GetSafeFont();
-            if (headerBannerText != null && headerBannerText.font == null) headerBannerText.font = font;
-            if (zombieTitleText != null && zombieTitleText.font == null) zombieTitleText.font = font;
-            if (weaknessBodyText != null && weaknessBodyText.font == null) weaknessBodyText.font = font;
-            if (tabooBodyText != null && tabooBodyText.font == null) tabooBodyText.font = font;
-            if (continueButtonText != null && continueButtonText.font == null) continueButtonText.font = font;
+            EnsureCardDataArray();
+
+            ZombieIntroCardData[] defaults = CreateDefaultCardData();
+            for (int i = 0; i < cardData.Length && i < 5; i++)
+            {
+                if (cardData[i] == null)
+                {
+                    cardData[i] = defaults[i];
+                    continue;
+                }
+                FillEmptyCardFields(cardData[i], defaults[i]);
+            }
+        }
+
+        static void FillEmptyCardFields(ZombieIntroCardData data, ZombieIntroCardData fallback)
+        {
+            if (string.IsNullOrEmpty(data.title)) data.title = fallback.title;
+            if (string.IsNullOrEmpty(data.subtitle)) data.subtitle = fallback.subtitle;
+            if (string.IsNullOrEmpty(data.chemicalDescription)) data.chemicalDescription = fallback.chemicalDescription;
+            if (string.IsNullOrEmpty(data.weaknessText)) data.weaknessText = fallback.weaknessText;
+            if (string.IsNullOrEmpty(data.mutationRiskText)) data.mutationRiskText = fallback.mutationRiskText;
+            if (string.IsNullOrEmpty(data.buttonLabel)) data.buttonLabel = fallback.buttonLabel;
+        }
+
+        /// <summary>
+        /// API Editor: bangun kartu Quick Info permanen di scene (Canvas overlay + seluruh
+        /// teks TextMeshProUGUI Cinzel) supaya bisa dikustomisasi di Inspector dan
+        /// tersimpan permanen di SampleScene, bukan hanya dibuat saat Play Mode.
+        /// </summary>
+        public void EditorBuildCardPermanently()
+        {
+            EnsureCardUI();
+
+            if (cardCanvasRoot != null)
+                cardCanvasRoot.SetActive(false);
+        }
+
+        /// <summary>
+        /// Terapkan sprite/warna kartu dari Inspector ke komponen yang sudah ada.
+        /// Tidak membangun ulang objek, jadi kustomisasi hierarki user tetap utuh.
+        /// </summary>
+        public void SyncCardVisualsFromConfig()
+        {
+            if (cardFrameRect == null)
+                return;
+
+            if (cardFrameRect.TryGetComponent(out Outline frameOutline))
+            {
+                frameOutline.effectColor = borderColor;
+                frameOutline.effectDistance = borderDistance;
+            }
+
+            Transform frameImage = cardFrameRect.Find("Spotlight_Card_Inner");
+            if (frameImage != null && frameImage.TryGetComponent(out Image boardImg))
+            {
+                boardImg.sprite = cardBackgroundSprite;
+                boardImg.color = cardBackgroundSprite != null ? cardBackgroundColor : cardBackgroundColor;
+                boardImg.type = (cardBackgroundSprite != null && cardBackgroundSprite.border.sqrMagnitude > 0f)
+                    ? Image.Type.Sliced
+                    : Image.Type.Simple;
+            }
+
+            if (continueButton != null)
+            {
+                Transform inner = continueButton.transform.Find("Btn_Inner");
+                if (inner != null && inner.TryGetComponent(out Image btnImg))
+                {
+                    btnImg.sprite = continueButtonSprite;
+                    btnImg.color = continueButtonColor;
+                    btnImg.type = (continueButtonSprite != null && continueButtonSprite.border.sqrMagnitude > 0f)
+                        ? Image.Type.Sliced
+                        : Image.Type.Simple;
+                    continueButton.targetGraphic = btnImg;
+                }
+            }
+
+            ApplyTextSize(headerBannerText, headerFontSize);
+            ApplyTextSize(zombieTitleText, titleFontSize);
+            ApplyTextSize(zombieSubtitleText, subtitleFontSize);
+            ApplyTextSize(weaknessBodyText, bodyFontSize);
+            ApplyTextSize(tabooBodyText, bodyFontSize);
+            ApplyTextSize(continueButtonText, buttonFontSize);
+
+            // Warna teks dari Inspector (bisa diubah kapan saja tanpa rebuild objek).
+            if (headerBannerText != null) headerBannerText.color = headerTextColor;
+            if (zombieSubtitleText != null) zombieSubtitleText.color = subtitleTextColor;
+            if (weaknessBodyText != null) weaknessBodyText.color = bodyTextColor;
+            if (tabooBodyText != null) tabooBodyText.color = bodyTextColor;
+            if (continueButtonText != null) continueButtonText.color = continueTextColor;
+        }
+
+        static void ApplyTextSize(TMPro.TextMeshProUGUI text, float size)
+        {
+            if (text == null) return;
+
+            // Semua teks kartu memakai font Cinzel (SDF) yang sama.
+            UITextUtil.ApplyProjectFont(text);
+
+            if (size > 0f)
+                text.fontSize = size;
         }
 
         static GameObject CreateUIObject(string name, Transform parent)
@@ -769,6 +1011,7 @@ namespace CuriesCrucible.Gameplay
         public struct ZombieSpotlightInfo
         {
             public string NameAndNature;
+            public string ChemicalDescription;
             public string EffectivePotion;
             public string TabooAndMutationRisk;
             public Color AccentColor;
@@ -783,12 +1026,13 @@ namespace CuriesCrucible.Gameplay
                 case ZombieType.ZombieAsam:
                     info.NameAndNature = "Zombie Asam  —  Sifat: Korosif & pH Rendah";
                     info.AccentColor = new Color(0.62f, 0.90f, 0.32f);
+                    info.ChemicalDescription = "Sifat: Korosif & pH rendah (asam kuat)";
                     info.EffectivePotion =
-                        "<b><color=#81C784>✦ KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
+                        "<b><color=#81C784>• KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
                         "• <b>Busa Sabun Mengembang</b> (Basa + Katalis) & <b>Bom Netralisasi</b>.\n" +
                         "• Reaksi netralisasi cepat merusak inti asam dan mementalkan zombie dengan knockback kuat!";
                     info.TabooAndMutationRisk =
-                        "<b><color=#E57373>✦ PANTANGAN (RISIKO MUTASI):</color></b>\n" +
+                        "<b><color=#E57373>• PANTANGAN (RISIKO MUTASI):</color></b>\n" +
                         "• <b>Ramuan Asam</b> (Kabut Asam Dingin / Asam Pelarut Karat).\n" +
                         "• Kebal asam! Menyiram asam justru memperkuat ion tubuhnya dan memicu <b>Mutasi Membesar (Enlarge +50% HP)</b>.";
                     break;
@@ -796,12 +1040,13 @@ namespace CuriesCrucible.Gameplay
                 case ZombieType.ZombieBasa:
                     info.NameAndNature = "Zombie Basa  —  Sifat: Alkali Licin & pH Tinggi";
                     info.AccentColor = new Color(0.45f, 0.68f, 1.00f);
+                    info.ChemicalDescription = "Sifat: Alkali licin & pH tinggi";
                     info.EffectivePotion =
-                        "<b><color=#81C784>✦ KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
+                        "<b><color=#81C784>• KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
                         "• <b>Kabut Asam Dingin</b> (Asam + Pendingin) & <b>Asam Pelarut Karat</b>.\n" +
                         "• Semburan asam langsung merusak mantel lendir sabun alkali secara instan!";
                     info.TabooAndMutationRisk =
-                        "<b><color=#E57373>✦ PANTANGAN (RISIKO MUTASI):</color></b>\n" +
+                        "<b><color=#E57373>• PANTANGAN (RISIKO MUTASI):</color></b>\n" +
                         "• <b>Ramuan Basa</b> (Gel Sabun Beku / Busa Sabun).\n" +
                         "• Menambah lapisan basa membuat tubuhnya semakin licin dan memicu <b>Mutasi Gerak Cepat (SpeedUp +40%)</b>.";
                     break;
@@ -809,12 +1054,13 @@ namespace CuriesCrucible.Gameplay
                 case ZombieType.ZombieApi:
                     info.NameAndNature = "Zombie Api  —  Sifat: Eksotermik & Sangat Cepat";
                     info.AccentColor = new Color(1.00f, 0.55f, 0.22f);
+                    info.ChemicalDescription = "Sifat: Eksotermik & sangat cepat";
                     info.EffectivePotion =
-                        "<b><color=#81C784>✦ KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
+                        "<b><color=#81C784>• KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
                         "• <b>Ledakan Es Instan</b> (Pendingin + Katalis) & <b>Gel Sabun Beku</b>.\n" +
                         "• Reaksi endotermik drastis menyerap panas tubuhnya dan membekukannya di tempat (Root)!";
                     info.TabooAndMutationRisk =
-                        "<b><color=#E57373>✦ PANTANGAN (RISIKO MUTASI):</color></b>\n" +
+                        "<b><color=#E57373>• PANTANGAN (RISIKO MUTASI):</color></b>\n" +
                         "• <b>Katalis Murni Tanpa Es</b>.\n" +
                         "• Mempercepat laju pembakaran api dan memicu <b>Mutasi Aura Buff Kecepatan (AoE Speed Buff)</b> ke zombie di sekitarnya!";
                     break;
@@ -822,12 +1068,13 @@ namespace CuriesCrucible.Gameplay
                 case ZombieType.ZombieBesi:
                     info.NameAndNature = "Zombie Besi  —  Sifat: Logam Berzirah Tebal (Oksidasi)";
                     info.AccentColor = new Color(0.75f, 0.77f, 0.85f);
+                    info.ChemicalDescription = "Sifat: Logam berzirah tebal (oksidasi)";
                     info.EffectivePotion =
-                        "<b><color=#81C784>✦ KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
+                        "<b><color=#81C784>• KELEMAHAN (EFEKTIF MENETRALKAN):</color></b>\n" +
                         "• <b>Asam Pelarut Karat</b> (Asam + Katalis) — <b>Kerusakan 3x Lipat!</b>\n" +
                         "• Satu-satunya formula korosif pekat yang sanggup melarutkan zirah besi tebal mereka.";
                     info.TabooAndMutationRisk =
-                        "<b><color=#E57373>✦ PANTANGAN (RISIKO MUTASI):</color></b>\n" +
+                        "<b><color=#E57373>• PANTANGAN (RISIKO MUTASI):</color></b>\n" +
                         "• <b>Serangan Non-Asam / Dingin Ringan</b>.\n" +
                         "• Logam zirah memantulkan sebagian besar kerusakan dan memicu <b>Mutasi Zirah Mengeras (Harden -40% DMG)</b>.";
                     break;
@@ -835,12 +1082,13 @@ namespace CuriesCrucible.Gameplay
                 case ZombieType.BossUnstableAmalgam:
                     info.NameAndNature = "Boss Unstable Amalgam  —  Sifat: Koloid Radioaktif Dua Tahap";
                     info.AccentColor = new Color(0.88f, 0.35f, 0.95f);
+                    info.ChemicalDescription = "Sifat: Koloid radioaktif dua tahap";
                     info.EffectivePotion =
-                        "<b><color=#81C784>✦ STRATEGI 2 TAHAP MUTLAK:</color></b>\n" +
+                        "<b><color=#81C784>• STRATEGI 2 TAHAP MUTLAK:</color></b>\n" +
                         "• <b>Tahap 1:</b> Dinginkan dengan 3x Ramuan Es/Pendingin hingga berstatus <b>Chilled</b> (8 detik).\n" +
                         "• <b>Tahap 2:</b> Saat Chilled, SEGERA lempar <b>Bom Netralisasi</b> (Damage 4x Lipat) untuk memusnahkannya!";
                     info.TabooAndMutationRisk =
-                        "<b><color=#E57373>✦ PANTANGAN (BAHAYA FATAL):</color></b>\n" +
+                        "<b><color=#E57373>• PANTANGAN (BAHAYA FATAL):</color></b>\n" +
                         "• Melempar Bom Netralisasi sebelum status Chilled tercapai hanya memberi 12% damage dan memicu amukan mutasi!";
                     break;
             }

@@ -34,8 +34,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -467.86716, y: -261.67383}
-  m_SizeDelta: {x: 88.0909, y: 30}
+  m_AnchoredPosition: {x: -467.61, y: -261.38}
+  m_SizeDelta: {x: 197.7429, y: 44.4537}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5101397225781067440
 CanvasRenderer:
@@ -67,10 +67,10 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 12800000, guid: 19eeb1f5356d21946950e72169db9f95, type: 3}
-    m_FontSize: 14
+    m_FontSize: 30
     m_FontStyle: 1
     m_BestFit: 0
-    m_MinSize: 10
+    m_MinSize: 2
     m_MaxSize: 40
     m_Alignment: 0
     m_AlignByGeometry: 0
@@ -141,7 +141,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 0
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 500
   m_TargetDisplay: 0
 --- !u!114 &5970411604961652914
 MonoBehaviour:
@@ -196,6 +196,7 @@ GameObject:
   - component: {fileID: 6269084576881577134}
   - component: {fileID: 2583137751050672437}
   - component: {fileID: 7821112921250906240}
+  - component: {fileID: 9077406652470678216}
   m_Layer: 9
   m_Name: Zombie_Besi
   m_TagString: Untagged
@@ -212,8 +213,8 @@ Transform:
   m_GameObject: {fileID: 7411852557528337055}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -0.4635, y: -0.6053, z: 0}
+  m_LocalScale: {x: 0.6423851, y: 0.6423851, z: 0.6423851}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1491470029896576476}
@@ -260,7 +261,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: fe5eb5e81537b9442afefca7ba440007, type: 3}
+  m_Sprite: {fileID: 1469108900, guid: 0ab1e9e1381e5dc4f9e27773756e38d5, type: 3}
   m_Color: {r: 0.4392157, g: 0.4745098, b: 0.50980395, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -365,3 +366,24 @@ MonoBehaviour:
   frozenColor: {r: 0.45, g: 0.85, b: 1, a: 1}
   follower: {fileID: 6269084576881577134}
   alchemy: {fileID: 0}
+--- !u!95 &9077406652470678216
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7411852557528337055}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 6a90bdf33375f6b43bb9684d74953a93, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

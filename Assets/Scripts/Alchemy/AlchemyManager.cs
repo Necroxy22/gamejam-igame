@@ -382,13 +382,23 @@ namespace CuriesCrucible.Alchemy
             if (refund)
             {
                 if (slot1Filled)
-                    ingredientStock[(int)slot1]++;
+                    RefundIngredient(slot1);
                 if (slot2Filled)
-                    ingredientStock[(int)slot2]++;
+                    RefundIngredient(slot2);
             }
 
             slot1Filled = false;
             slot2Filled = false;
+        }
+
+        /// <summary>Kembalikan 1 bahan ke stok tanpa melewati maxStockPerIngredient.</summary>
+        void RefundIngredient(IngredientType type)
+        {
+            int index = (int)type;
+            if (index < 0 || index >= ingredientStock.Length)
+                return;
+
+            ingredientStock[index] = Mathf.Min(maxStockPerIngredient, ingredientStock[index] + 1);
         }
 
         /// <summary>Keluarkan bahan dari slot kuali (0 = slot1, 1 = slot2) dan kembalikan ke stok.</summary>
@@ -397,14 +407,14 @@ namespace CuriesCrucible.Alchemy
             EnsureStock();
             if (slot == 0 && slot1Filled)
             {
-                ingredientStock[(int)slot1]++;
+                RefundIngredient(slot1);
                 slot1Filled = false;
                 FireInventoryChanged();
                 return true;
             }
             if (slot == 1 && slot2Filled)
             {
-                ingredientStock[(int)slot2]++;
+                RefundIngredient(slot2);
                 slot2Filled = false;
                 FireInventoryChanged();
                 return true;
@@ -426,7 +436,7 @@ namespace CuriesCrucible.Alchemy
             if (slot == 0)
             {
                 if (slot1Filled)
-                    ingredientStock[(int)slot1]++;
+                    RefundIngredient(slot1);
                 slot1 = type;
                 slot1Filled = true;
                 ingredientStock[idx]--;
@@ -437,7 +447,7 @@ namespace CuriesCrucible.Alchemy
             else if (slot == 1)
             {
                 if (slot2Filled)
-                    ingredientStock[(int)slot2]++;
+                    RefundIngredient(slot2);
                 slot2 = type;
                 slot2Filled = true;
                 ingredientStock[idx]--;
@@ -676,7 +686,7 @@ namespace CuriesCrucible.Alchemy
         // Stok bahan (drop zombie)
         // ------------------------------------------------------------------
 
-        /// <summary>Tambah bahan dasar acak (hasil drop zombie).</summary>
+        /// <summary>Tambah bahan dasar acak (hasil drop zombie), dibatasi maxStockPerIngredient.</summary>
         public IngredientType AddRandomIngredient(int amount)
         {
             EnsureStock();
@@ -686,7 +696,7 @@ namespace CuriesCrucible.Alchemy
             for (int i = 0; i < amount; i++)
             {
                 int index = UnityEngine.Random.Range(0, ingredientStock.Length);
-                ingredientStock[index]++;
+                ingredientStock[index] = Mathf.Min(maxStockPerIngredient, ingredientStock[index] + 1);
                 last = (IngredientType)index;
             }
 
@@ -727,7 +737,9 @@ namespace CuriesCrucible.Alchemy
         public void AddIngredientDirect(IngredientType type)
         {
             EnsureStock();
-            ingredientStock[(int)type]++;
+            int index = (int)type;
+            if (index < 0 || index >= ingredientStock.Length) return;
+            ingredientStock[index] = Mathf.Min(maxStockPerIngredient, ingredientStock[index] + 1);
             FireInventoryChanged();
         }
 

@@ -34,8 +34,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -467.85324, y: -261.6549}
-  m_SizeDelta: {x: 92.5673, y: 30}
+  m_AnchoredPosition: {x: -467.72318, y: -261.4879}
+  m_SizeDelta: {x: 210.0231, y: 45.153}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8669906971697861106
 CanvasRenderer:
@@ -67,10 +67,10 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 12800000, guid: 19eeb1f5356d21946950e72169db9f95, type: 3}
-    m_FontSize: 14
-    m_FontStyle: 0
+    m_FontSize: 30
+    m_FontStyle: 1
     m_BestFit: 0
-    m_MinSize: 10
+    m_MinSize: 0
     m_MaxSize: 40
     m_Alignment: 0
     m_AlignByGeometry: 0
@@ -92,6 +92,7 @@ GameObject:
   - component: {fileID: 4823302374434776595}
   - component: {fileID: 5798815772736226065}
   - component: {fileID: 8596498634721889842}
+  - component: {fileID: 3215972840424633201}
   m_Layer: 9
   m_Name: Zombie_Asam
   m_TagString: Untagged
@@ -110,7 +111,7 @@ Transform:
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 6900670201479936997}
   m_Father: {fileID: 0}
@@ -156,8 +157,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: fe5eb5e81537b9442afefca7ba440007, type: 3}
-  m_Color: {r: 0.84313726, g: 0.14901961, b: 0.21960784, a: 1}
+  m_Sprite: {fileID: 224080367, guid: a64080f90fd528f46ade0892bc47e6d4, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -188,8 +189,8 @@ MonoBehaviour:
   fixedZ: 0
   perspectiveBottomY: -4
   perspectiveTopY: 1.5
-  nearScale: 1.15
-  farScale: 0.65
+  nearScale: 0.8
+  farScale: 0.3
   baseScale: 1
   mutationScale: 1
   sortingOrderBias: 0
@@ -230,8 +231,8 @@ CapsuleCollider2D:
   m_IsTrigger: 1
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0, y: 0.5}
-  m_Size: {x: 0.55, y: 1}
+  m_Offset: {x: 0.06937319, y: 0.13517225}
+  m_Size: {x: 1.6937433, y: 2.5118096}
   m_Direction: 0
 --- !u!114 &8596498634721889842
 MonoBehaviour:
@@ -261,6 +262,27 @@ MonoBehaviour:
   frozenColor: {r: 0.45, g: 0.85, b: 1, a: 1}
   follower: {fileID: 4823302374434776595}
   alchemy: {fileID: 0}
+--- !u!95 &3215972840424633201
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2902933531807144206}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: cfeb3a62e5aff764c8225915ade5c31c, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &5758520713459495732
 GameObject:
   m_ObjectHideFlags: 0
@@ -321,7 +343,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 0
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 500
   m_TargetDisplay: 0
 --- !u!114 &3045349222510709957
 MonoBehaviour:
@@ -344,7 +366,7 @@ MonoBehaviour:
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
-  m_DynamicPixelsPerUnit: 1
+  m_DynamicPixelsPerUnit: 2
   m_PresetInfoIsWorld: 1
 --- !u!114 &570136753058668045
 MonoBehaviour:

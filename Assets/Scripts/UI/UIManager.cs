@@ -79,7 +79,7 @@ namespace CuriesCrucible.UI
 
         void ResolveReferences()
         {
-            if (towerHealth == null) towerHealth = TowerHealthManager.Instance ?? FindObjectOfType<TowerHealthManager>();
+            if (towerHealth == null) towerHealth = TowerHealthManager.Instance.Ensure(() => FindObjectOfType<TowerHealthManager>());
             if (waveManager == null) waveManager = FindObjectOfType<WaveManager>();
             if (craftingPopup == null) craftingPopup = FindObjectOfType<AlchemyCraftingPopup>();
             if (gameplayHUD == null) gameplayHUD = FindObjectOfType<GameplayHUD>();
@@ -135,6 +135,7 @@ namespace CuriesCrucible.UI
                 _isGameEnded = true;
                 if (gameEndPanel != null)
                     gameEndPanel.ShowVictory();
+                CuriesCrucible.Audio.GameAudioManager.Instance?.PlayEndingBGM();
             }
         }
 
@@ -146,6 +147,7 @@ namespace CuriesCrucible.UI
             _isGameEnded = true;
             if (gameEndPanel != null)
                 gameEndPanel.ShowGameOver();
+            CuriesCrucible.Audio.GameAudioManager.Instance?.PlayContinueBGM();
         }
 
         public void OnGameStarted()

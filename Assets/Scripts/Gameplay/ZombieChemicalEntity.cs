@@ -234,9 +234,6 @@ namespace CuriesCrucible.Gameplay
         void UpdateSpeed()
         {
             if (follower == null)
-                follower = GetComponent<PathFollower25D>();
-
-            if (follower == null)
                 return;
 
             float multiplier = 1f;

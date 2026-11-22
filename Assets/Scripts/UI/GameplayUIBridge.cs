@@ -59,8 +59,8 @@ namespace CuriesCrucible.Gameplay
         public RectTransform[] hotbarSlotRoots = new RectTransform[6];
         public Image[] hotbarIcons = new Image[6];
         public Button[] hotbarButtons = new Button[6];
-        public Text[] hotbarKeyLabels = new Text[6];
-        public Text[] hotbarCountBadges = new Text[6];
+        public TMPro.TextMeshProUGUI[] hotbarKeyLabels = new TMPro.TextMeshProUGUI[6];
+        public TMPro.TextMeshProUGUI[] hotbarCountBadges = new TMPro.TextMeshProUGUI[6];
 
         [Tooltip("Tombol lingkaran tengah Hotbar untuk meracik ramuan slot aktif.")]
         public Button centerBrewButton;
@@ -75,7 +75,7 @@ namespace CuriesCrucible.Gameplay
         public Component craftPHText;
 
         [Header("Crafting Panel — Panel Stok 4 Bahan Dasar (Kiri)")]
-        public Text[] craftStockBadgeTexts = new Text[4];
+        public TMPro.TMP_Text[] craftStockBadgeTexts = new TMPro.TMP_Text[4];
         public Image[] craftStockIconImages = new Image[4];
         public CraftIngredientDraggable[] craftStockDraggables = new CraftIngredientDraggable[4];
 
@@ -111,6 +111,68 @@ namespace CuriesCrucible.Gameplay
         [Tooltip("Nama scene menu utama untuk tombol Quit.")]
         public string mainMenuScene = "Main_Menu";
 
+        [Header("Laci Resep — Tampilan (Bisa Dikustomisasi)")]
+        [Tooltip("Sprite & warna bingkai laci, bookmark, dan kartu. Semua bisa diganti dari Inspector.")]
+        public RecipeDrawerVisualStyle drawerStyle = new RecipeDrawerVisualStyle();
+
+        [Tooltip("Data 6 kartu resep (judul, ikon, deskripsi, target, warna teks). Urutan = slot hotbar 1..6.")]
+        public RecipeCardData[] recipeCards = new RecipeCardData[6];
+
+        [Tooltip("Data 4 kartu bahan dasar (judul, ikon, info kimia, warna tema). Urutan = Basa, Pendingin, Asam, Katalis.")]
+        public IngredientCardData[] ingredientCards = new IngredientCardData[4];
+
+        [Header("Laci Resep — Ukuran Teks (TextMeshPro)")]
+        public float drawerTitleFontSize = 18f;
+        public float drawerDescriptionFontSize = 13f;
+        public float drawerTargetFontSize = 14f;
+        public float drawerFormulaGlyphFontSize = 22f;
+        public float drawerTabFontSize = 15f;
+        public float ingredientCardTitleFontSize = 16f;
+        public float ingredientCardInfoFontSize = 13f;
+
+        // ------------------------------------------------------------------
+        // Single Source of Truth — Sprite Ikon Ramuan
+        // ------------------------------------------------------------------
+
+        [Header("Sprite Ikon — 4 Bahan Dasar (Sumber Tunggal)")]
+        [Tooltip("Urutan WAJIB: 0 = Basa/Biru, 1 = Pendingin/Cyan, 2 = Asam/Merah, 3 = Katalis/Kuning.")]
+        public Sprite[] basePotionSprites = new Sprite[4];
+
+        [Tooltip("Urutan WAJIB: 0 = Gel Sabun Beku, 1 = Kabut Asam Dingin, 2 = Ledakan Es Instan, " +
+                 "3 = Asam Pelarut Karat, 4 = Bom Netralisasi, 5 = Busa Sabun Mengembang.\n\n" +
+                 "Elemen yang MASIH KOSONG (null) dibiarkan memakai warna placeholder lama. " +
+                 "Isi PNG-nya agar ikon otomatis masuk ke Hotbar & kartu resep.")]
+        public Sprite[] compoundPotionSprites = new Sprite[6];
+
+        [Tooltip("Redupkan ikon Hotbar saat stok ramuan 0x.")]
+        public bool dimEmptyHotbarIcons = true;
+
+        [Range(0f, 1f)]
+        public float emptyIconDimAmount = 0.55f;
+
+        [Header("Sprite Ikon — Referensi UI (assign manual di Inspector)")]
+        [Tooltip("4 Image ikon stok bahan dasar (Bottom_panel/Base). Hanya Image.sprite yang diubah.")]
+        [SerializeField] Image[] baseStockIconImages = new Image[4];
+
+        [Tooltip("4 Image Icon_Box di panel buku resep (Card_Bahan…).")]
+        [SerializeField] Image[] ingredientCardIconImages = new Image[4];
+
+        [Tooltip("Kartu resep campuran Recipe_Card_0…5 (root transform).")]
+        [SerializeField] RectTransform[] recipeCardRoots = new RectTransform[6];
+
+        [Header("Sprite Ikon — Meja Racik & Indikator pH (assign manual)")]
+        [Tooltip("Craft Slot 1 Image & Craft Slot 2 Image pada Meja Racik. " +
+                 "Terisi → sprite dari basePotionSprites; kosong → warna Color.clear (node tetap aktif).")]
+        [SerializeField] private Image[] mixingInputIcons = new Image[2];
+
+        [Tooltip("Craft Result Image: pratinjau hasil dari compoundPotionSprites[recipeIndex].")]
+        [SerializeField] private Image mixingResultIcon;
+
+        [Tooltip("Ikon bahan/ramuan di panel atau indikator pH. Indeks = ID bahan " +
+                 "(0=Basa/Biru, 1=Pendingin/Cyan, 2=Asam/Merah, 3=Katalis/Kuning); " +
+                 "indeks > 3 boleh diisi ikon ramuan campuran dari compoundPotionSprites.")]
+        [SerializeField] private Image[] phIndicatorIcons = new Image[4];
+
         // ------------------------------------------------------------------
         // Runtime
         // ------------------------------------------------------------------
@@ -126,13 +188,30 @@ namespace CuriesCrucible.Gameplay
         readonly int[] _lastPotionStock = { -1, -1, -1, -1, -1, -1 };
         int _lastSelectedSlot = -1;
 
-        // Laci Buku Resep Geser (runtime, dibangun sekali di dalam Craft_panel)
+        // Cache status kuali untuk Meja Racik (hindari sync sprite tiap frame)
+        int _lastMixSlot1 = -1;
+        int _lastMixSlot2 = -1;
+
+        // Laci Buku Resep Geser (dibangun sekali; data dibaca dari field Inspector di atas)
         RectTransform _recipeDrawer;
         RectTransform _recipeDrawerTab;
-        Text _recipeDrawerTabLabel;
+        TMPro.TextMeshProUGUI _recipeDrawerTabLabel;
         float _recipeDrawerClosedX;
         bool _recipeDrawerOpen;
         bool _recipeDrawerBuilt;
+        bool _drawerIsPrefabInstance;
+
+        // Kartu/bingkai yang dibangun runtime, agar bisa di-sync ulang dengan Inspector.
+        Image _recipeDrawerBackground;      // Image latar laci
+        Image _recipeDrawerBookmarkImage;   // Image sprite bookmark
+        Image[] _recipeCardFrames;          // Background 6 kartu resep
+        Image[] _recipeResultIcons;         // Kotak ikon hasil (kiri formula)
+        TMPro.TextMeshProUGUI[] _ingredientCardTitles;
+        TMPro.TextMeshProUGUI[] _ingredientCardInfos;
+
+        // Ikon bahan (Ing1_Box / Ing2_Box) kartu resep yang dibangun runtime.
+        Image[] _recipeIngredientAIcons;
+        Image[] _recipeIngredientBIcons;
 
         const string PrefMusic = "MusicVolume";
         const string PrefSfx = "SFXVolume";
@@ -140,12 +219,30 @@ namespace CuriesCrucible.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Bootstrap()
         {
+            // Bridge ini mengasumsikan Canvas gameplay (HUD + hotbar). Scene Main_Menu /
+            // Credits punya Canvas sendiri dan tidak boleh disentuh.
+            if (!IsGameplayScene(SceneManager.GetActiveScene().name))
+                return;
+
             if (FindObjectOfType<GameplayUIBridge>() != null)
                 return;
 
             Canvas canvas = FindObjectOfType<Canvas>();
             if (canvas != null)
                 canvas.gameObject.AddComponent<GameplayUIBridge>();
+        }
+
+        /// <summary>
+        /// Scene gameplay = punya WaveManager/AlchemyManager. Dipakai agar bootstrap
+        /// tidak menyentuh scene menu yang Canvas-nya bukan HUD.
+        /// </summary>
+        static bool IsGameplayScene(string sceneName)
+        {
+            if (FindObjectOfType<WaveManager>() != null || AlchemyManager.Instance != null)
+                return true;
+
+            // Cadangan: nama scene gameplay bawaan proyek ini.
+            return sceneName == "SampleScene";
         }
 
         // ------------------------------------------------------------------
@@ -171,6 +268,11 @@ namespace CuriesCrucible.Gameplay
             if (optionsPanel != null) optionsPanel.SetActive(false);
             if (pauseMenu != null) pauseMenu.SetActive(false);
             Time.timeScale = 1f;
+
+            // Sumber tunggal sprite tetap aman bila komponen lain membangun ulang ikon
+            // pada frame pertama (sebelum Start() milik bridge berjalan).
+            if (isActiveAndEnabled)
+                ApplyAllPotionSprites();
         }
 
         void OnDestroy()
@@ -183,6 +285,11 @@ namespace CuriesCrucible.Gameplay
         void Start()
         {
             ResolveManagers();
+
+            // Sprite siap sebelum wiring agar ikon yang dibuat ulang oleh Wire*()
+            // langsung memakai sprite dari sumber tunggal.
+            AutoAssignBaseSpritesFromProject();
+
             AutoWire();
 
             WireIngredients();
@@ -190,7 +297,25 @@ namespace CuriesCrucible.Gameplay
             WireCraftPanel();
             WireButtons();
             WireSliders();
+
+            ApplyAllPotionSprites();
             RefreshUI(true);
+        }
+
+        /// <summary>
+        /// Dipanggil Unity saat nilai Inspector berubah. Semua operasi di sini aman
+        /// di Edit Mode: tanpa event bracketing, coroutine, atau pembuatan Canvas Play-only.
+        /// </summary>
+        void OnValidate()
+        {
+            if (Application.isPlaying && Instance != null && Instance != this)
+                return;
+
+            AutoAssignBaseSpritesFromProject();
+
+            // Objek yang belum ada (mis. laci resep) di-skip dulu; dibangun saat
+            // Start()/Edit Mode builder memakai sprite yang sudah terisi.
+            ApplyAllPotionSprites();
         }
 
         void Update()
@@ -202,8 +327,8 @@ namespace CuriesCrucible.Gameplay
 
         void ResolveManagers()
         {
-            if (alchemy == null) alchemy = AlchemyManager.Instance ?? FindObjectOfType<AlchemyManager>();
-            if (tower == null) tower = TowerHealthManager.Instance ?? FindObjectOfType<TowerHealthManager>();
+            if (alchemy == null) alchemy = AlchemyManager.Instance.Ensure(() => FindObjectOfType<AlchemyManager>());
+            if (tower == null) tower = TowerHealthManager.Instance.Ensure(() => FindObjectOfType<TowerHealthManager>());
             if (waves == null) waves = FindObjectOfType<WaveManager>();
         }
 
@@ -331,6 +456,7 @@ namespace CuriesCrucible.Gameplay
 
             craftPanel.transform.SetAsLastSibling();
             WireCraftPanel();
+            ApplyAllPotionSprites();
             RefreshCraftPanel();
         }
 
@@ -362,6 +488,7 @@ namespace CuriesCrucible.Gameplay
 
                 craftPanel.transform.SetAsLastSibling();
                 WireCraftPanel();
+                ApplyAllPotionSprites();
                 RefreshCraftPanel();
             }
         }
@@ -384,7 +511,16 @@ namespace CuriesCrucible.Gameplay
 
         public void DoBrewFromCauldron()
         {
+            if (alchemy == null) alchemy = AlchemyManager.Instance ?? FindObjectOfType<AlchemyManager>();
             if (alchemy == null) return;
+
+            // Jika sedang berada di tutorial prolog, pastikan selalu mengeksekusi peracikan tutorial
+            PrologueTutorialManager ptm = PrologueTutorialManager.Instance ?? FindObjectOfType<PrologueTutorialManager>();
+            if (ptm != null && ptm.CurrentState != PrologueState.Completed && ptm.CurrentState != PrologueState.NotStarted)
+            {
+                ptm.ExecuteTutorialBrew();
+                return;
+            }
 
             if (alchemy.slot1Filled && alchemy.slot2Filled)
             {
@@ -479,6 +615,57 @@ namespace CuriesCrucible.Gameplay
             return RectTransformUtility.RectangleContainsScreenPoint(rt, Input.mousePosition, null);
         }
 
+        /// <summary>
+        /// Mengecek apakah kursor mouse saat ini sedang berada di atas panel interaktif yang aktif
+        /// (Craft_panel, Hotbar, Bottom_panel, Top_panel, Pause_Menu, Options_Panel).
+        /// Digunakan oleh ArenaThrowTargeting agar lemparan tidak terblokir oleh canvas transparan.
+        /// </summary>
+        public static bool IsPointerOverInteractiveUI()
+        {
+            if (Instance == null) return false;
+            Vector2 mousePos = Input.mousePosition;
+
+            // 1. Craft_panel & laci resep
+            if (IsPointerOverCraftPanel()) return true;
+
+            // 2. Hotbar
+            if (IsPointerOverHotbar()) return true;
+
+            // 3. Bottom Panel (Stok 4 bahan dasar)
+            if (Instance.bottomPanel != null && Instance.bottomPanel.activeInHierarchy)
+            {
+                RectTransform rt = Instance.bottomPanel.GetComponent<RectTransform>();
+                if (rt != null && RectTransformUtility.RectangleContainsScreenPoint(rt, mousePos, null))
+                    return true;
+            }
+
+            // 4. Top Panel (HP Menara, Wave, Tombol Pause)
+            if (Instance.topPanel != null && Instance.topPanel.activeInHierarchy)
+            {
+                RectTransform rt = Instance.topPanel.GetComponent<RectTransform>();
+                if (rt != null && RectTransformUtility.RectangleContainsScreenPoint(rt, mousePos, null))
+                    return true;
+            }
+
+            // 5. Pause Menu
+            if (Instance.pauseMenu != null && Instance.pauseMenu.activeInHierarchy)
+            {
+                RectTransform rt = Instance.pauseMenu.GetComponent<RectTransform>();
+                if (rt != null && RectTransformUtility.RectangleContainsScreenPoint(rt, mousePos, null))
+                    return true;
+            }
+
+            // 6. Options Panel
+            if (Instance.optionsPanel != null && Instance.optionsPanel.activeInHierarchy)
+            {
+                RectTransform rt = Instance.optionsPanel.GetComponent<RectTransform>();
+                if (rt != null && RectTransformUtility.RectangleContainsScreenPoint(rt, mousePos, null))
+                    return true;
+            }
+
+            return false;
+        }
+
         // ------------------------------------------------------------------
         // UI Refresh (Perubahan Nilai Saja)
         // ------------------------------------------------------------------
@@ -530,7 +717,7 @@ namespace CuriesCrucible.Gameplay
                     {
                         _lastIngredientStock[i] = stock;
                         string stockStr = stock + "x";
-                        if (stockDisplayTexts[i] != null)
+                        if (stockDisplayTexts != null && i < stockDisplayTexts.Length && stockDisplayTexts[i] != null)
                             SetText(stockDisplayTexts[i], stockStr);
                     }
                 }
@@ -547,20 +734,31 @@ namespace CuriesCrucible.Gameplay
                 {
                     int stock = (alchemy.potionStock != null && i < alchemy.potionStock.Length) ? alchemy.potionStock[i] : 0;
                     bool stockChanged = force || (_lastPotionStock[i] != stock);
+                    bool hasSourceSprite = HotbarHasSourceSprite(i);
 
                     if (stockChanged)
                     {
                         _lastPotionStock[i] = stock;
 
                         // Badge jumlah ("0x", "1x", "2x")
-                        if (hotbarCountBadges[i] != null)
+                        if (hotbarCountBadges != null && i < hotbarCountBadges.Length && hotbarCountBadges[i] != null)
                         {
                             hotbarCountBadges[i].text = stock + "x";
                             hotbarCountBadges[i].color = stock > 0 ? Color.white : new Color(0.7f, 0.7f, 0.7f, 0.85f);
                         }
+                    }
 
-                        // Warna slot ramuan
-                        if (hotbarIcons[i] != null)
+                    // Warna slot ramuan:
+                    //   - Bila PNG sumber tunggal sudah diisi, sprite yang menentukan warna
+                    //     (hanya diredupkan saat stok 0x, bukan diwarnai ulang).
+                    //   - Bila belum ada PNG, placeholder lama tetap memakai warna ramuan.
+                    if (hotbarIcons != null && i < hotbarIcons.Length && hotbarIcons[i] != null)
+                    {
+                        if (hasSourceSprite)
+                        {
+                            if (stockChanged) RefreshHotbarSourceTint(i, stock);
+                        }
+                        else if (stockChanged)
                         {
                             Color potionCol = AlchemyDatabase.PotionColor(AlchemyManager.FixedSlotPotions[i]);
                             if (stock > 0)
@@ -576,13 +774,13 @@ namespace CuriesCrucible.Gameplay
                     }
 
                     // Highlight visual pada slot terpilih (skala membesar 1.15x)
-                    if (selectedChanged && hotbarSlotRoots[i] != null)
+                    if (selectedChanged && hotbarSlotRoots != null && i < hotbarSlotRoots.Length && hotbarSlotRoots[i] != null)
                     {
                         bool isSel = (i == currentSelected);
                         hotbarSlotRoots[i].localScale = isSel ? Vector3.one * 1.15f : Vector3.one;
 
-                        // Tambahkan kecerahan jika terpilih
-                        if (hotbarIcons[i] != null && stock > 0)
+                        // Tambahkan kecerahan jika terpilih (hanya untuk placeholder tanpa PNG)
+                        if (!hasSourceSprite && hotbarIcons != null && i < hotbarIcons.Length && hotbarIcons[i] != null && stock > 0)
                         {
                             Color potionCol = AlchemyDatabase.PotionColor(AlchemyManager.FixedSlotPotions[i]);
                             hotbarIcons[i].color = isSel ? Color.Lerp(potionCol, Color.white, 0.35f) : potionCol;
@@ -592,6 +790,434 @@ namespace CuriesCrucible.Gameplay
 
                 _lastSelectedSlot = currentSelected;
             }
+
+            // 4. Meja Racik: sync hanya saat isi kuali berubah (bukan tiap frame).
+            if (alchemy != null)
+            {
+                int s1 = alchemy.slot1Filled ? (int)alchemy.slot1 : -1;
+                int s2 = alchemy.slot2Filled ? (int)alchemy.slot2 : -1;
+
+                bool slotsChanged = force || s1 != _lastMixSlot1 || s2 != _lastMixSlot2;
+                if (slotsChanged)
+                {
+                    _lastMixSlot1 = s1;
+                    _lastMixSlot2 = s2;
+                    ApplySpritesToMixingTable();
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Single Source of Truth — Sinkronisasi Sprite Ikon Ramuan
+        // ------------------------------------------------------------------
+
+        // Penanda pencarian sprite project sudah dijalankan (hemat I/O saat Play Mode).
+        bool _baseSpritesResolved;
+
+        /// <summary>
+        /// Terapkan seluruh sprite (4 bahan dasar + 6 ramuan campuran) ke slot ikon yang sudah
+        /// di-assign di Inspector. Hanya <see cref="Image.sprite"/>, <c>color</c>, dan
+        /// <c>preserveAspect</c> yang diubah: posisi, ukuran, struktur child, dan status
+        /// GameObject wadah/bingkai tidak pernah disentuh.
+        /// Idempoten: aman dipanggil dari Awake, Start, OnValidate, dan setiap refresh UI.
+        /// </summary>
+        public void ApplyAllPotionSprites()
+        {
+            EnsureSpriteArrays();
+
+            ApplyBaseSpritesToHudStock();
+            ApplyBaseSpritesToIngredientCards();
+            ApplySpritesToRecipeCards();
+            ApplyCompoundSpritesToRecipeResults();
+            ApplyCompoundSpritesToHotbar();
+            ApplySpritesToPhIndicators();
+            ApplySpritesToMixingTable();
+        }
+
+        /// <summary>
+        /// Lengkapi array sprite agar selalu berukuran 4 (bahan) dan 6 (campuran).
+        /// Elemen lama dipertahankan; kekurangan diisi null.
+        /// </summary>
+        void EnsureSpriteArrays()
+        {
+            if (basePotionSprites == null || basePotionSprites.Length != 4)
+            {
+                Sprite[] old = basePotionSprites;
+                basePotionSprites = new Sprite[4];
+                if (old != null)
+                {
+                    for (int i = 0; i < old.Length && i < 4; i++)
+                        basePotionSprites[i] = old[i];
+                }
+            }
+
+            if (compoundPotionSprites == null || compoundPotionSprites.Length != 6)
+            {
+                Sprite[] old = compoundPotionSprites;
+                compoundPotionSprites = new Sprite[6];
+                if (old != null)
+                {
+                    for (int i = 0; i < old.Length && i < 6; i++)
+                        compoundPotionSprites[i] = old[i];
+                }
+            }
+
+            if (baseStockIconImages == null || baseStockIconImages.Length != 4)
+                baseStockIconImages = KeepFour(baseStockIconImages);
+            if (ingredientCardIconImages == null || ingredientCardIconImages.Length != 4)
+                ingredientCardIconImages = KeepFour(ingredientCardIconImages);
+            if (recipeCardRoots == null || recipeCardRoots.Length != 6)
+                recipeCardRoots = KeepSix(recipeCardRoots);
+        }
+
+        static Image[] KeepFour(Image[] old)
+        {
+            Image[] arr = new Image[4];
+            if (old != null)
+            {
+                for (int i = 0; i < old.Length && i < 4; i++)
+                    arr[i] = old[i];
+            }
+            return arr;
+        }
+
+        static RectTransform[] KeepSix(RectTransform[] old)
+        {
+            RectTransform[] arr = new RectTransform[6];
+            if (old != null)
+            {
+                for (int i = 0; i < old.Length && i < 6; i++)
+                    arr[i] = old[i];
+            }
+            return arr;
+        }
+
+        /// <summary>
+        /// Cari sprite bahan dasar di Assets/Sprites/Potion_ sesuai nama file
+        /// ("base potion biru/cyan/merah/kuning"). Hanya mengisi slot yang masih null,
+        /// jadi sprite yang sudah di-assign manual di Inspector tidak pernah ditimpa.
+        /// </summary>
+        public void AutoAssignBaseSpritesFromProject()
+        {
+            EnsureSpriteArrays();
+
+            bool allFilled = true;
+            for (int i = 0; i < 4; i++)
+            {
+                if (basePotionSprites[i] == null) allFilled = false;
+            }
+            if (allFilled) return;
+
+            if (Application.isPlaying && _baseSpritesResolved) return;
+            _baseSpritesResolved = true;
+
+#if UNITY_EDITOR
+            string[] keywords = { "base potion biru", "base potion cyan", "base potion merah", "base potion kuning" };
+
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:Sprite", new[] { "Assets/Sprites/Potion_" });
+            for (int g = 0; g < guids.Length; g++)
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[g]);
+                Sprite spr = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                if (spr == null) continue;
+
+                string fileNoExt = System.IO.Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
+                for (int i = 0; i < 4; i++)
+                {
+                    if (basePotionSprites[i] != null) continue;
+                    if (fileNoExt.Contains(keywords[i]))
+                        basePotionSprites[i] = spr;
+                }
+            }
+#endif
+        }
+
+        // --- Target A: 4 slot stok bahan (Bottom_panel/Base) -------------------
+
+        void ApplyBaseSpritesToHudStock()
+        {
+            if (baseStockIconImages == null) return;
+
+            for (int i = 0; i < 4 && i < baseStockIconImages.Length; i++)
+                ApplyIconSprite(baseStockIconImages[i], SafeBaseSprite(i));
+        }
+
+        // --- Target B: 4 Icon_Box di panel buku resep --------------------------
+
+        void ApplyBaseSpritesToIngredientCards()
+        {
+            EnsureDrawerData();
+
+            if (ingredientCardIconImages == null) return;
+
+            for (int i = 0; i < 4 && i < ingredientCardIconImages.Length; i++)
+            {
+                Sprite overrideSprite = ingredientCards != null && i < ingredientCards.Length && ingredientCards[i] != null
+                    ? ingredientCards[i].customIngredientIcon
+                    : null;
+
+                Sprite spr = overrideSprite != null ? overrideSprite : SafeBaseSprite(i);
+                ApplyIconSprite(ingredientCardIconImages[i], spr);
+            }
+        }
+
+        // --- Target C: ikon bahan (Icon_A / Icon_B) di 6 kartu resep -----------
+
+        void ApplySpritesToRecipeCards()
+        {
+            if (recipeCardRoots == null) return;
+
+            for (int i = 0; i < 6; i++)
+            {
+                RectTransform card = i < recipeCardRoots.Length ? recipeCardRoots[i] : null;
+                if (card == null) continue;
+
+                IngredientType ingA;
+                IngredientType ingB;
+                AlchemyManager.GetSlotIngredients(i, out ingA, out ingB);
+
+                RecipeCardData data = recipeCards != null && i < recipeCards.Length ? recipeCards[i] : null;
+
+                Sprite spriteA = data != null && data.customIngredientAIcon != null
+                    ? data.customIngredientAIcon
+                    : SafeBaseSprite((int)ingA);
+                Sprite spriteB = data != null && data.customIngredientBIcon != null
+                    ? data.customIngredientBIcon
+                    : SafeBaseSprite((int)ingB);
+
+                ApplyIconSprite(FindCardIcon(card, "Ing1_Box", "Icon_A", ref _recipeIngredientAIcons, i), spriteA);
+                ApplyIconSprite(FindCardIcon(card, "Ing2_Box", "Icon_B", ref _recipeIngredientBIcons, i), spriteB);
+            }
+        }
+
+        /// <summary>
+        /// Ambil kotak ikon bahan di kartu resep ("Ing1_Box"/"Icon_A", "Ing2_Box"/"Icon_B").
+        /// Tidak pernah membuat objek baru: kotak yang tidak ada di scene dianggap tidak ada.
+        /// </summary>
+        Image FindCardIcon(RectTransform card, string primaryName, string aliasName, ref Image[] cache, int index)
+        {
+            Transform t = card.Find(primaryName);
+            if (t == null) t = card.Find(aliasName);
+
+            Image img = t != null ? t.GetComponent<Image>() : null;
+
+            if (cache == null || cache.Length < 6) cache = new Image[6];
+            cache[index] = img;
+            return img;
+        }
+
+        // --- Target B campuran: Result_Box 6 kartu resep ----------------------
+
+        void ApplyCompoundSpritesToRecipeResults()
+        {
+            if (recipeCardRoots == null) return;
+
+            for (int i = 0; i < 6; i++)
+            {
+                RectTransform card = i < recipeCardRoots.Length ? recipeCardRoots[i] : null;
+                if (card == null) continue;
+
+                Transform result = card.Find("Result_Box");
+                if (result == null) continue;
+
+                Image img = result.GetComponent<Image>();
+                if (img == null) continue;
+
+                if (_recipeResultIcons == null || _recipeResultIcons.Length < 6) _recipeResultIcons = new Image[6];
+                _recipeResultIcons[i] = img;
+
+                RecipeCardData data = recipeCards != null && i < recipeCards.Length ? recipeCards[i] : null;
+                Sprite overrideSprite = data != null ? data.customPotionIcon : null;
+                Sprite spr = overrideSprite != null ? overrideSprite : SafeCompoundSprite(i);
+
+                ApplyIconSprite(img, spr);
+            }
+        }
+
+        // --- Target A campuran: 6 slot Hotbar --------------------------------
+
+        void ApplyCompoundSpritesToHotbar()
+        {
+            if (hotbarIcons == null) return;
+
+            for (int i = 0; i < 6 && i < hotbarIcons.Length; i++)
+            {
+                // Hanya sprite yang diubah; warna placeholder tanpa PNG diatur RefreshUI().
+                ApplyIconSprite(hotbarIcons[i], SafeCompoundSprite(i));
+            }
+        }
+
+        // --- Meja Racik (2 kotak bahan + pratinjau hasil, di atas BREW) ------
+
+        /// <summary>
+        /// Sinkronkan ikon Meja Racik dari status kuali:
+        ///   - mixingInputIcons[0..1] ← basePotionSprites[id bahan slot1/slot2].
+        ///     Slot kosong → image.color = Color.clear (node wadah tetap aktif).
+        ///   - mixingResultIcon ← compoundPotionSprites[recipeIndex] saat kombinasi valid;
+        ///     warna lama dipertahankan bila sprite belum tersedia.
+        /// Tidak ada pembuatan/destroy objek dan tidak ada SetActive().
+        /// </summary>
+        void ApplySpritesToMixingTable()
+        {
+            bool hasAlchemy = alchemy != null;
+
+            // 1. Dua kotak bahan input.
+            if (mixingInputIcons != null)
+            {
+                for (int i = 0; i < mixingInputIcons.Length && i < 2; i++)
+                {
+                    Image img = mixingInputIcons[i];
+                    if (img == null) continue;
+
+                    bool filled = hasAlchemy && (i == 0 ? alchemy.slot1Filled : alchemy.slot2Filled);
+
+                    if (!filled)
+                    {
+                        // Edit Mode tanpa AlchemyManager: jangan sembunyikan layout.
+                        if (hasAlchemy) img.color = Color.clear;
+                        continue;
+                    }
+
+                    int ingId = i == 0 ? (int)alchemy.slot1 : (int)alchemy.slot2;
+                    Sprite spr = SafeBaseSprite(ingId);
+
+                    if (spr != null)
+                    {
+                        img.sprite = spr;
+                        img.color = Color.white;
+                        img.preserveAspect = true;
+                    }
+                    else if (hasAlchemy)
+                    {
+                        // Bahan terisi tetapi PNG belum ada → jangan tampilkan gambar lama.
+                        img.color = Color.clear;
+                    }
+                }
+            }
+
+            // 2. Kotak pratinjau hasil racikan.
+            if (mixingResultIcon != null)
+            {
+                Sprite resultSprite = null;
+
+                if (hasAlchemy && alchemy.slot1Filled && alchemy.slot2Filled)
+                {
+                    int recipeIndex = ResolveMixingRecipeIndex();
+                    if (recipeIndex >= 0)
+                        resultSprite = SafeCompoundSprite(recipeIndex);
+                }
+
+                // Sprite null → warna placeholder lama dibiarkan apa adanya.
+                ApplyIconSprite(mixingResultIcon, resultSprite);
+            }
+        }
+
+        /// <summary>
+        /// Nomor resep (0..5 = indeks FixedSlotPotions / compoundPotionSprites) untuk isi kuali
+        /// saat ini, atau -1 bila kombinasi tidak valid. Dicocokkan lewat PotionRecipeSO;
+        /// bila SO resep belum tersedia, dicocokkan lewat pasangan bahan tetap di AlchemyManager.
+        /// </summary>
+        int ResolveMixingRecipeIndex()
+        {
+            if (alchemy == null) return -1;
+            if (!alchemy.slot1Filled || !alchemy.slot2Filled) return -1;
+
+            // A. Lewat resep (menghormati rentang pH).
+            if (alchemy.recipes != null)
+            {
+                PotionRecipeSO rec = alchemy.FindRecipe(alchemy.slot1, alchemy.slot2, alchemy.CurrentPH);
+                if (rec != null)
+                {
+                    for (int i = 0; i < AlchemyManager.FixedSlotPotions.Length; i++)
+                    {
+                        if (AlchemyManager.FixedSlotPotions[i] == rec.potionType)
+                            return i;
+                    }
+                }
+            }
+
+            // B. Cadangan: cocokkan pasangan bahan (bisa dibalik).
+            for (int i = 0; i < 6; i++)
+            {
+                IngredientType a, b;
+                AlchemyManager.GetSlotIngredients(i, out a, out b);
+
+                bool direct = alchemy.slot1 == a && alchemy.slot2 == b;
+                bool swapped = alchemy.slot1 == b && alchemy.slot2 == a;
+                if (direct || swapped)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        // --- Panel / Indikator pH --------------------------------------------
+
+        /// <summary>
+        /// Sinkronkan ikon bahan di panel/indikator pH dari basePotionSprites.
+        /// Indeks i = ID bahan (0..3). Bila array lebih panjang dari 4, indeks
+        /// tambahan diisi dari compoundPotionSprites (ramuan campuran).
+        /// </summary>
+        void ApplySpritesToPhIndicators()
+        {
+            if (phIndicatorIcons == null) return;
+
+            for (int i = 0; i < phIndicatorIcons.Length; i++)
+            {
+                Sprite spr = i < 4 ? SafeBaseSprite(i) : SafeCompoundSprite(i - 4);
+                ApplyIconSprite(phIndicatorIcons[i], spr);
+            }
+        }
+
+        Sprite SafeBaseSprite(int index)
+        {
+            if (basePotionSprites == null || index < 0 || index >= basePotionSprites.Length) return null;
+            return basePotionSprites[index];
+        }
+
+        Sprite SafeCompoundSprite(int index)
+        {
+            if (compoundPotionSprites == null || index < 0 || index >= compoundPotionSprites.Length) return null;
+            return compoundPotionSprites[index];
+        }
+
+        /// <summary>true bila slot hotbar ini sudah memakai PNG campuran dari sumber tunggal.</summary>
+        bool HotbarHasSourceSprite(int index)
+        {
+            return SafeCompoundSprite(index) != null &&
+                   hotbarIcons != null && index < hotbarIcons.Length && hotbarIcons[index] != null;
+        }
+
+        // ------------------------------------------------------------------
+        // Helper Sprite
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Ganti gambar sebuah slot ikon. Satu-satunya hal yang diubah adalah
+        /// <see cref="Image.sprite"/>, <c>color</c>, dan <c>preserveAspect</c>.
+        /// Posisi, ukuran, struktur child, dan status GameObject TIDAK pernah diubah.
+        ///   sprite != null → sprite dipasang, color = Color.white, preserveAspect = true.
+        ///   sprite == null → dibiarkan apa adanya (sprite &amp; warna bawaan scene tetap utuh).
+        /// </summary>
+        static void ApplyIconSprite(Image image, Sprite sprite)
+        {
+            if (image == null || sprite == null) return;
+
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+        }
+
+        /// <summary>
+        /// Redupkan ikon Hotbar yang stoknya 0x (opsional, lihat <see cref="dimEmptyHotbarIcons"/>).
+        /// </summary>
+        void RefreshHotbarSourceTint(int index, int stock)
+        {
+            if (!dimEmptyHotbarIcons) return;
+            if (!HotbarHasSourceSprite(index)) return;
+
+            float dim = Mathf.Clamp01(emptyIconDimAmount);
+            hotbarIcons[index].color = stock > 0 ? Color.white : new Color(dim, dim, dim, 1f);
         }
 
         // ------------------------------------------------------------------
@@ -658,14 +1284,19 @@ namespace CuriesCrucible.Gameplay
                     }
                 });
 
-                // Terapkan warna bahan ke Image button
+                // Terapkan warna bahan ke Image button.
+                // Bila PNG sumber tunggal sudah diisi, warna ditangani ApplyBaseSpritesToHudStock()
+                // (putih + preserveAspect) agar tidak tertimpa warna kotak placeholder.
                 Image img = btn.GetComponent<Image>();
-                if (img != null)
+                if (img != null && SafeBaseSprite(i) == null)
                 {
                     img.color = AlchemyDatabase.IngredientColor((IngredientType)i);
                 }
 
                 // Cari teks stok di child button (TMP_Text atau Text)
+                if (stockDisplayTexts == null || stockDisplayTexts.Length < 4)
+                    stockDisplayTexts = new Component[4];
+
                 Component txtComp = FindTextComponentIn(btn.gameObject);
                 if (txtComp != null)
                     stockDisplayTexts[i] = txtComp;
@@ -697,12 +1328,6 @@ namespace CuriesCrucible.Gameplay
             // Urutkan dari kiri ke kanan berdasarkan posisi X
             slotRects.Sort((a, b) => a.anchoredPosition.x.CompareTo(b.anchoredPosition.x));
 
-            Font safeFont = ZombieIntroSpotlight.GetSafeFont();
-            if (safeFont == null)
-                safeFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (safeFont == null)
-                safeFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
-
             for (int i = 0; i < slotRects.Count && i < 6; i++)
             {
                 RectTransform rt = slotRects[i];
@@ -728,13 +1353,14 @@ namespace CuriesCrucible.Gameplay
                 Transform keyLabelTrans = rt.Find("Key_Label");
                 if (keyLabelTrans != null && !(keyLabelTrans is RectTransform))
                 {
-                    Destroy(keyLabelTrans.gameObject);
+                    if (Application.isPlaying) Destroy(keyLabelTrans.gameObject);
+                    else DestroyImmediate(keyLabelTrans.gameObject);
                     keyLabelTrans = null;
                 }
 
                 if (keyLabelTrans == null)
                 {
-                    GameObject go = new GameObject("Key_Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                    GameObject go = new GameObject("Key_Label", typeof(RectTransform), typeof(CanvasRenderer));
                     go.layer = 5;
                     go.transform.SetParent(rt, false);
                     keyLabelTrans = go.transform;
@@ -748,17 +1374,14 @@ namespace CuriesCrucible.Gameplay
                 keyRt.sizeDelta = new Vector2(30f, 20f);
                 keyRt.localScale = Vector3.one;
 
-                CanvasRenderer keyCr = keyLabelTrans.GetComponent<CanvasRenderer>() ?? keyLabelTrans.gameObject.AddComponent<CanvasRenderer>();
-
-                Text keyText = keyLabelTrans.GetComponent<Text>() ?? keyLabelTrans.gameObject.AddComponent<Text>();
+                TMPro.TextMeshProUGUI keyText = UITextUtil.EnsureText(keyLabelTrans.gameObject, 15f);
                 keyText.text = (i + 1).ToString();
-                if (safeFont != null) keyText.font = safeFont;
-                keyText.fontSize = 15;
-                keyText.fontStyle = FontStyle.Bold;
-                keyText.alignment = TextAnchor.MiddleCenter;
+                keyText.fontSize = 15f;
+                keyText.fontStyle = TMPro.FontStyles.Bold;
+                keyText.alignment = TMPro.TextAlignmentOptions.Center;
                 keyText.color = new Color(1f, 0.88f, 0.45f, 1f); // Kuningan terang
-                keyText.horizontalOverflow = HorizontalWrapMode.Overflow;
-                keyText.verticalOverflow = VerticalWrapMode.Overflow;
+                keyText.enableWordWrapping = false;
+                keyText.overflowMode = TMPro.TextOverflowModes.Overflow;
                 keyText.raycastTarget = false;
                 hotbarKeyLabels[i] = keyText;
 
@@ -770,13 +1393,14 @@ namespace CuriesCrucible.Gameplay
                 Transform badgeTrans = rt.Find("Count_Badge");
                 if (badgeTrans != null && !(badgeTrans is RectTransform))
                 {
-                    Destroy(badgeTrans.gameObject);
+                    if (Application.isPlaying) Destroy(badgeTrans.gameObject);
+                    else DestroyImmediate(badgeTrans.gameObject);
                     badgeTrans = null;
                 }
 
                 if (badgeTrans == null)
                 {
-                    GameObject go = new GameObject("Count_Badge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                    GameObject go = new GameObject("Count_Badge", typeof(RectTransform), typeof(CanvasRenderer));
                     go.layer = 5;
                     go.transform.SetParent(rt, false);
                     badgeTrans = go.transform;
@@ -790,23 +1414,31 @@ namespace CuriesCrucible.Gameplay
                 badgeRt.sizeDelta = new Vector2(40f, 22f);
                 badgeRt.localScale = Vector3.one;
 
-                CanvasRenderer badgeCr = badgeTrans.GetComponent<CanvasRenderer>() ?? badgeTrans.gameObject.AddComponent<CanvasRenderer>();
-
-                Text badgeText = badgeTrans.GetComponent<Text>() ?? badgeTrans.gameObject.AddComponent<Text>();
+                TMPro.TextMeshProUGUI badgeText = UITextUtil.EnsureText(badgeTrans.gameObject, 14f);
                 badgeText.text = "0x";
-                if (safeFont != null) badgeText.font = safeFont;
-                badgeText.fontSize = 14;
-                badgeText.fontStyle = FontStyle.Bold;
-                badgeText.alignment = TextAnchor.MiddleRight;
+                badgeText.fontSize = 14f;
+                badgeText.fontStyle = TMPro.FontStyles.Bold;
+                badgeText.alignment = TMPro.TextAlignmentOptions.MidlineRight;
                 badgeText.color = Color.white;
-                badgeText.horizontalOverflow = HorizontalWrapMode.Overflow;
-                badgeText.verticalOverflow = VerticalWrapMode.Overflow;
+                badgeText.enableWordWrapping = false;
+                badgeText.overflowMode = TMPro.TextOverflowModes.Overflow;
                 badgeText.raycastTarget = false;
                 hotbarCountBadges[i] = badgeText;
 
                 var badgeOutline = badgeTrans.GetComponent<Outline>() ?? badgeTrans.gameObject.AddComponent<Outline>();
                 badgeOutline.effectColor = new Color(0f, 0f, 0f, 0.9f);
                 badgeOutline.effectDistance = new Vector2(1f, -1f);
+            }
+
+            // Pastikan click listener untuk seluruh slot button terhubung
+            for (int i = 0; i < 6; i++)
+            {
+                if (hotbarButtons != null && i < hotbarButtons.Length && hotbarButtons[i] != null)
+                {
+                    int slotIndex = i;
+                    hotbarButtons[i].onClick.RemoveAllListeners();
+                    hotbarButtons[i].onClick.AddListener(() => SelectSlot(slotIndex));
+                }
             }
 
             // 4. Tombol lingkaran tengah Hotbar (Hotbar -> Button) untuk membuka/menutup Craft_panel
@@ -1076,45 +1708,18 @@ namespace CuriesCrucible.Gameplay
             ContentSizeFitter csf = contentTrans.GetComponent<ContentSizeFitter>() ?? contentTrans.gameObject.AddComponent<ContentSizeFitter>();
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            Font safeFont = ZombieIntroSpotlight.GetSafeFont();
-            if (safeFont == null) safeFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (safeFont == null) safeFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            EnsureDrawerData();
 
-            // Data 4 Bahan Dasar (Basa, Pendingin, Asam, Katalis)
-            var ingData = new []
-            {
-                new {
-                    type = IngredientType.BahanBasa_Biru,
-                    title = "Cairan Basa (OH⁻)",
-                    desc = "pH tinggi (pH 12), licin seperti sabun, menetralkan asam.",
-                    color = AlchemyDatabase.IngredientColor(IngredientType.BahanBasa_Biru)
-                },
-                new {
-                    type = IngredientType.BahanPendingin_Cyan,
-                    title = "Cairan Pendingin (-ΔH)",
-                    desc = "Reaksi endotermik, menyerap kalor, membekukan kobaran api.",
-                    color = AlchemyDatabase.IngredientColor(IngredientType.BahanPendingin_Cyan)
-                },
-                new {
-                    type = IngredientType.BahanAsam_Merah,
-                    title = "Cairan Asam (H⁺)",
-                    desc = "pH rendah (pH 2), sangat korosif, melarutkan zirah besi.",
-                    color = AlchemyDatabase.IngredientColor(IngredientType.BahanAsam_Merah)
-                },
-                new {
-                    type = IngredientType.BahanKatalis_Kuning,
-                    title = "Bubuk Katalis",
-                    desc = "Menurunkan energi aktivasi, melipatgandakan laju reaksi kimia.",
-                    color = AlchemyDatabase.IngredientColor(IngredientType.BahanKatalis_Kuning)
-                }
-            };
-
+            // Data 4 Bahan Dasar (Basa, Pendingin, Asam, Katalis) — dari Inspector.
             RectTransform craftRt = craftPanel != null ? craftPanel.GetComponent<RectTransform>() : null;
+            _ingredientCardTitles = new TMPro.TextMeshProUGUI[4];
+            _ingredientCardInfos = new TMPro.TextMeshProUGUI[4];
 
             for (int i = 0; i < 4; i++)
             {
-                var data = ingData[i];
-                string cardName = "Card_" + data.type;
+                IngredientCardData data = ingredientCards[i];
+                IngredientType type = (IngredientType)i;
+                string cardName = "Card_" + type;
                 Transform cardTrans = contentTrans.Find(cardName);
                 if (cardTrans == null)
                 {
@@ -1125,11 +1730,13 @@ namespace CuriesCrucible.Gameplay
                 }
 
                 LayoutElement le = cardTrans.GetComponent<LayoutElement>() ?? cardTrans.gameObject.AddComponent<LayoutElement>();
-                le.preferredHeight = 90f;
-                le.minHeight = 90f;
+                le.preferredHeight = 96f;
+                le.minHeight = 96f;
 
-                Image cardBg = cardTrans.GetComponent<Image>() ?? cardTrans.gameObject.AddComponent<Image>();
-                cardBg.color = new Color(0.14f, 0.17f, 0.23f, 0.95f);
+                // Latar belakang kartu bahan dasar: Image.color maupun ApplyFrame dihentikan
+                // agar warna dan sprite kartu yang sudah diatur manual di Unity Editor tetap tampil apa adanya saat Play Mode.
+                if (cardTrans.GetComponent<Image>() == null)
+                    cardTrans.gameObject.AddComponent<Image>();
 
                 // Outline halus pada kartu
                 var cardOutline = cardTrans.GetComponent<Outline>() ?? cardTrans.gameObject.AddComponent<Outline>();
@@ -1154,9 +1761,26 @@ namespace CuriesCrucible.Gameplay
                 iconRt.sizeDelta = new Vector2(62f, 62f);
 
                 Image iconImg = iconTrans.GetComponent<Image>() ?? iconTrans.gameObject.AddComponent<Image>();
-                iconImg.color = data.color;
-                iconImg.raycastTarget = true;
                 craftStockIconImages[i] = iconImg;
+
+                // Sumber tunggal: basePotionSprites (override per-kartu opsional).
+                // Tanpa sprite → placeholder warna tema lama tetap dipakai.
+                Sprite ingSprite = data.customIngredientIcon != null ? data.customIngredientIcon : SafeBaseSprite(i);
+                if (ingSprite != null)
+                {
+                    ApplyIconSprite(iconImg, ingSprite);
+                }
+                else
+                {
+                    // Tanpa PNG: biarkan sprite bawaan Icon_Box tetap terpasang,
+                    // cukup tint warnanya (jangan di-reset ke sprite kosong/putih polos).
+                    iconImg.color = data.themeColor;
+                }
+                iconImg.raycastTarget = true;
+
+                if (ingredientCardIconImages == null || ingredientCardIconImages.Length < 4)
+                    ingredientCardIconImages = new Image[4];
+                ingredientCardIconImages[i] = iconImg;
 
                 var iconOutline = iconTrans.GetComponent<Outline>() ?? iconTrans.gameObject.AddComponent<Outline>();
                 iconOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
@@ -1164,7 +1788,7 @@ namespace CuriesCrucible.Gameplay
 
                 CraftIngredientDraggable draggable = iconTrans.GetComponent<CraftIngredientDraggable>() ?? iconTrans.gameObject.AddComponent<CraftIngredientDraggable>();
                 draggable.source = CraftDragSource.Stock;
-                draggable.ingredientType = data.type;
+                draggable.ingredientType = type;
                 draggable.craftPanelRect = craftRt;
                 draggable.rootCanvas = canvas;
                 craftStockDraggables[i] = draggable;
@@ -1193,7 +1817,7 @@ namespace CuriesCrucible.Gameplay
                 Transform badgeTextTrans = badgeTrans.Find("Text");
                 if (badgeTextTrans == null)
                 {
-                    GameObject btGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                    GameObject btGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer));
                     btGo.layer = 5;
                     btGo.transform.SetParent(badgeTrans, false);
                     badgeTextTrans = btGo.transform;
@@ -1205,15 +1829,14 @@ namespace CuriesCrucible.Gameplay
                 btRt.offsetMin = Vector2.zero;
                 btRt.offsetMax = Vector2.zero;
 
-                Text badgeText = badgeTextTrans.GetComponent<Text>() ?? badgeTextTrans.gameObject.AddComponent<Text>();
+                TMPro.TextMeshProUGUI badgeText = UITextUtil.EnsureText(badgeTextTrans.gameObject, 12f);
                 badgeText.text = "0x";
-                if (safeFont != null) badgeText.font = safeFont;
-                badgeText.fontSize = 12;
-                badgeText.fontStyle = FontStyle.Bold;
-                badgeText.alignment = TextAnchor.MiddleCenter;
+                badgeText.fontSize = 12f;
+                badgeText.fontStyle = TMPro.FontStyles.Bold;
+                badgeText.alignment = TMPro.TextAlignmentOptions.Center;
                 badgeText.color = Color.white;
-                badgeText.horizontalOverflow = HorizontalWrapMode.Overflow;
-                badgeText.verticalOverflow = VerticalWrapMode.Overflow;
+                badgeText.enableWordWrapping = false;
+                badgeText.overflowMode = TMPro.TextOverflowModes.Overflow;
                 badgeText.raycastTarget = false;
                 craftStockBadgeTexts[i] = badgeText;
 
@@ -1233,11 +1856,11 @@ namespace CuriesCrucible.Gameplay
                 tcRt.offsetMin = new Vector2(80f, 6f);
                 tcRt.offsetMax = new Vector2(-8f, -6f);
 
-                // Title
+                // Title (TextMeshPro)
                 Transform titleTrans = textContTrans.Find("Title");
                 if (titleTrans == null)
                 {
-                    GameObject tGo = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                    GameObject tGo = new GameObject("Title", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
                     tGo.layer = 5;
                     tGo.transform.SetParent(textContTrans, false);
                     titleTrans = tGo.transform;
@@ -1248,24 +1871,23 @@ namespace CuriesCrucible.Gameplay
                 titleRt.anchorMax = new Vector2(1f, 1f);
                 titleRt.pivot = new Vector2(0f, 1f);
                 titleRt.anchoredPosition = new Vector2(0f, 0f);
-                titleRt.sizeDelta = new Vector2(0f, 22f);
+                titleRt.sizeDelta = new Vector2(0f, 24f);
 
-                Text titleText = titleTrans.GetComponent<Text>() ?? titleTrans.gameObject.AddComponent<Text>();
-                titleText.text = data.title;
-                if (safeFont != null) titleText.font = safeFont;
-                titleText.fontSize = 14;
-                titleText.fontStyle = FontStyle.Bold;
-                titleText.alignment = TextAnchor.MiddleLeft;
-                titleText.color = new Color(1f, 0.88f, 0.45f, 1f); // Kuningan emas terang
-                titleText.horizontalOverflow = HorizontalWrapMode.Wrap;
-                titleText.verticalOverflow = VerticalWrapMode.Overflow;
+                TMPro.TextMeshProUGUI titleText = UITextUtil.EnsureText(titleTrans.gameObject, ingredientCardTitleFontSize);
+                titleText.text = data.ingredientTitle;
+                titleText.fontStyle = TMPro.FontStyles.Bold;
+                titleText.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+                titleText.color = new Color(1f, 0.88f, 0.45f, 1f);
+                titleText.enableWordWrapping = true;
+                titleText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
                 titleText.raycastTarget = false;
+                _ingredientCardTitles[i] = titleText;
 
-                // Desc
+                // Desc (TextMeshPro)
                 Transform descTrans = textContTrans.Find("Desc");
                 if (descTrans == null)
                 {
-                    GameObject dGo = new GameObject("Desc", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                    GameObject dGo = new GameObject("Desc", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
                     dGo.layer = 5;
                     dGo.transform.SetParent(textContTrans, false);
                     descTrans = dGo.transform;
@@ -1276,18 +1898,17 @@ namespace CuriesCrucible.Gameplay
                 descRt.anchorMax = new Vector2(1f, 1f);
                 descRt.pivot = new Vector2(0f, 1f);
                 descRt.offsetMin = new Vector2(0f, 0f);
-                descRt.offsetMax = new Vector2(0f, -22f);
+                descRt.offsetMax = new Vector2(0f, -24f);
 
-                Text descText = descTrans.GetComponent<Text>() ?? descTrans.gameObject.AddComponent<Text>();
-                descText.text = data.desc;
-                if (safeFont != null) descText.font = safeFont;
-                descText.fontSize = 11;
-                descText.fontStyle = FontStyle.Normal;
-                descText.alignment = TextAnchor.UpperLeft;
+                TMPro.TextMeshProUGUI descText = UITextUtil.EnsureText(descTrans.gameObject, ingredientCardInfoFontSize);
+                descText.text = data.chemicalInfoText;
+                descText.fontStyle = TMPro.FontStyles.Normal;
+                descText.alignment = TMPro.TextAlignmentOptions.TopLeft;
                 descText.color = new Color(0.80f, 0.84f, 0.90f, 0.95f);
-                descText.horizontalOverflow = HorizontalWrapMode.Wrap;
-                descText.verticalOverflow = VerticalWrapMode.Overflow;
+                descText.enableWordWrapping = true;
+                descText.overflowMode = TMPro.TextOverflowModes.Overflow;
                 descText.raycastTarget = false;
+                _ingredientCardInfos[i] = descText;
             }
         }
 
@@ -1325,27 +1946,379 @@ namespace CuriesCrucible.Gameplay
             RefreshRecipeDrawerTab();
         }
 
+        public void OpenRecipeDrawer()
+        {
+            if (craftPanel == null || !craftPanel.activeSelf)
+                return;
+
+            if (!_recipeDrawerBuilt)
+                BuildRecipeDrawer(craftPanel.GetComponent<RectTransform>());
+
+            _recipeDrawerOpen = true;
+            RefreshRecipeDrawerTab();
+        }
+
+        public void CloseRecipeDrawer()
+        {
+            if (_recipeDrawerOpen)
+            {
+                _recipeDrawerOpen = false;
+                RefreshRecipeDrawerTab();
+            }
+        }
+
+        /// <summary>
+        /// Data resep default — hanya dipakai sebagai nilai AWAL untuk field Inspector
+        /// yang masih kosong. Mengubah isi Inspector tidak pernah ditimpa oleh ini.
+        /// </summary>
+        static RecipeCardData[] CreateDefaultRecipeCards()
+        {
+            string[] titles =
+            {
+                "Gel Sabun Beku",
+                "Kabut Asam Dingin",
+                "Ledakan Es Instan",
+                "Asam Pelarut Karat",
+                "Bom Netralisasi",
+                "Busa Sabun Mengembang"
+            };
+
+            string[] reactions =
+            {
+                "Reaksi saponifikasi & pendinginan eksotermik menghasilkan gel kriogenik yang membekukan pergerakan.",
+                "Asam yang diuapkan lalu didinginkan mengembun menjadi kabut korosif yang melapisi zirah sasaran.",
+                "Pendingin dan katalis memicu kristalisasi kilat: ledakan kristal es yang menghentikan laju reaksi.",
+                "Asam pekat berbantu katalis melarutkan lapisan karat dan zirah besi dalam sekejap.",
+                "Netralisasi asam-basa kuat melepaskan gelombang kejut CO2 dan uap panas.",
+                "Busa sabun mengembang oleh katalis: gelembung kimia mendorong sekaligus memperlambat."
+            };
+
+            string[] targets =
+            {
+                "Efektif: Zombie Api",
+                "Efektif: Zombie Besi",
+                "Efektif: Zombie Asam",
+                "Efektif: Zombie Besi",
+                "Efektif: Zombie Basa",
+                "Efektif: Zombie Asam"
+            };
+
+            var cards = new RecipeCardData[6];
+            for (int i = 0; i < 6; i++)
+            {
+                cards[i] = new RecipeCardData
+                {
+                    recipeTitle = titles[i],
+                    scientificDescription = reactions[i],
+                    effectiveTargetText = targets[i]
+                };
+            }
+            return cards;
+        }
+
+        static IngredientCardData[] CreateDefaultIngredientCards()
+        {
+            return new[]
+            {
+                new IngredientCardData
+                {
+                    ingredientTitle = "Cairan Basa (OH<sup>-</sup>)",
+                    chemicalInfoText = "pH tinggi (pH 12), licin seperti sabun, menetralkan asam.",
+                    themeColor = AlchemyDatabase.IngredientColor(IngredientType.BahanBasa_Biru)
+                },
+                new IngredientCardData
+                {
+                    ingredientTitle = "Cairan Pendingin (-\u0394H)",
+                    chemicalInfoText = "Reaksi endotermik, menyerap kalor, membekukan kobaran api.",
+                    themeColor = AlchemyDatabase.IngredientColor(IngredientType.BahanPendingin_Cyan)
+                },
+                new IngredientCardData
+                {
+                    ingredientTitle = "Cairan Asam (H<sup>+</sup>)",
+                    chemicalInfoText = "pH rendah (pH 2), sangat korosif, melarutkan zirah besi.",
+                    themeColor = AlchemyDatabase.IngredientColor(IngredientType.BahanAsam_Merah)
+                },
+                new IngredientCardData
+                {
+                    ingredientTitle = "Bubuk Katalis",
+                    chemicalInfoText = "Menurunkan energi aktivasi, melipatgandakan laju reaksi kimia.",
+                    themeColor = AlchemyDatabase.IngredientColor(IngredientType.BahanKatalis_Kuning)
+                }
+            };
+        }
+
+        /// <summary>Pastikan array data Inspector punya panjang benar (6 resep, 4 bahan) & tidak null.</summary>
+        void EnsureDrawerData()
+        {
+            if (drawerStyle == null)
+                drawerStyle = new RecipeDrawerVisualStyle();
+
+            RecipeCardData[] defaults = CreateDefaultRecipeCards();
+
+            if (recipeCards == null || recipeCards.Length != 6)
+            {
+                RecipeCardData[] old = recipeCards;
+                recipeCards = new RecipeCardData[6];
+                if (old != null)
+                {
+                    for (int i = 0; i < old.Length && i < 6; i++)
+                        recipeCards[i] = old[i];
+                }
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                if (recipeCards[i] == null)
+                    recipeCards[i] = defaults[i];
+                else
+                    FillEmptyRecipeFields(recipeCards[i], defaults[i]);
+            }
+
+            IngredientCardData[] ingDefaults = CreateDefaultIngredientCards();
+
+            if (ingredientCards == null || ingredientCards.Length != 4)
+            {
+                IngredientCardData[] oldIng = ingredientCards;
+                ingredientCards = new IngredientCardData[4];
+                if (oldIng != null)
+                {
+                    for (int i = 0; i < oldIng.Length && i < 4; i++)
+                        ingredientCards[i] = oldIng[i];
+                }
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                if (ingredientCards[i] == null)
+                    ingredientCards[i] = ingDefaults[i];
+                else
+                    FillEmptyIngredientFields(ingredientCards[i], ingDefaults[i]);
+            }
+        }
+
+        static void FillEmptyRecipeFields(RecipeCardData card, RecipeCardData fallback)
+        {
+            if (string.IsNullOrEmpty(card.recipeTitle)) card.recipeTitle = fallback.recipeTitle;
+            if (string.IsNullOrEmpty(card.scientificDescription)) card.scientificDescription = fallback.scientificDescription;
+            if (string.IsNullOrEmpty(card.effectiveTargetText)) card.effectiveTargetText = fallback.effectiveTargetText;
+            if (string.IsNullOrEmpty(card.arrowText)) card.arrowText = fallback.arrowText;
+            if (string.IsNullOrEmpty(card.plusText)) card.plusText = fallback.plusText;
+        }
+
+        static void FillEmptyIngredientFields(IngredientCardData card, IngredientCardData fallback)
+        {
+            if (string.IsNullOrEmpty(card.ingredientTitle)) card.ingredientTitle = fallback.ingredientTitle;
+            if (string.IsNullOrEmpty(card.chemicalInfoText)) card.chemicalInfoText = fallback.chemicalInfoText;
+            if (card.themeColor.a <= 0f) card.themeColor = fallback.themeColor;
+        }
+
+        /// <summary>
+        /// API Editor: bangun Recipe_Drawer + 6 kartu permanen di bawah Canvas -> Craft_panel
+        /// (dipakai menu Tools agar objek tersimpan ke SampleScene, bukan hanya saat Play).
+        /// </summary>
+        public void EditorBuildRecipeDrawerPermanently()
+        {
+            if (craftPanel == null)
+                craftPanel = FindByName(canvas != null ? canvas.transform : transform.root, "Craft_panel");
+
+            if (craftPanel == null)
+                return;
+
+            RectTransform craftRt = craftPanel.GetComponent<RectTransform>();
+            if (craftRt == null)
+                return;
+
+            // Jika sudah ada sisa dari Play Mode / run sebelumnya, bersihkan agar tidak dobel.
+            RemoveExistingDrawerObjects(craftRt);
+
+            _recipeDrawerBuilt = false;
+            _recipeDrawer = null;
+            _recipeDrawerTab = null;
+            _recipeDrawerTabLabel = null;
+
+            BuildRecipeDrawer(craftRt);
+        }
+
+        /// <summary>Hapus objek laci lama (window, drawer, tab) supaya hasil generate tidak dobel.</summary>
+        void RemoveExistingDrawerObjects(RectTransform craftRt)
+        {
+            if (craftRt == null)
+                return;
+
+            string[] names = { "Recipe_Drawer_Window", "Recipe_Drawer", "Recipe_Drawer_Tab" };
+            for (int n = 0; n < names.Length; n++)
+            {
+                Transform found = craftRt.Find(names[n]);
+                if (found != null)
+                {
+                    if (Application.isPlaying) Destroy(found.gameObject);
+                    else DestroyImmediate(found.gameObject);
+                }
+            }
+        }
+
+        /// <summary>
+        /// API Editor: bangun ulang 4 kartu bahan (sisi kiri Craft_panel) secara permanen
+        /// memakai data Inspector <see cref="ingredientCards"/>.
+        /// </summary>
+        public void EditorBuildIngredientCardsPermanently()
+        {
+            if (craftPanel == null)
+                craftPanel = FindByName(canvas != null ? canvas.transform : transform.root, "Craft_panel");
+
+            if (craftPanel == null)
+                return;
+
+            Transform leftSub = craftPanel.transform.Find("Resep");
+            if (leftSub == null)
+                leftSub = craftPanel.transform.Find("Bahan_Scroll");
+            if (leftSub == null)
+                return;
+
+            EnsureDrawerData();
+            SetupCraftIngredientsScroll(leftSub);
+        }
+
+        /// <summary>
+        /// API Editor: pastikan label shortcut (1–6) dan badge stok (0x/1x/…) pada Hotbar
+        /// memakai TextMeshProUGUI ber-font Cinzel dan tersimpan permanen di SampleScene
+        /// (bukan hanya dibuat saat Play Mode).
+        /// </summary>
+        public void EditorBuildHotbarTextsPermanently()
+        {
+            if (canvas == null)
+                canvas = GetComponent<Canvas>();
+            if (hotbarRoot == null && canvas != null)
+                hotbarRoot = FindByName(canvas.transform, "Hotbar");
+            if (hotbarRoot == null)
+                return;
+
+            WireHotbar();
+        }
+
         void RefreshRecipeDrawerTab()
         {
             if (_recipeDrawerTabLabel == null)
                 return;
 
-            _recipeDrawerTabLabel.text = _recipeDrawerOpen ? "RESEP\n>" : "<\nRESEP";
+            string arrow = _recipeDrawerOpen ? ">" : "<";
+            string format = drawerStyle != null && !string.IsNullOrEmpty(drawerStyle.bookmarkTabLabelFormat)
+                ? drawerStyle.bookmarkTabLabelFormat
+                : "RESEP\n{0}";
+
+            _recipeDrawerTabLabel.text = string.Format(format, arrow);
+        }
+
+        /// <summary>
+        /// Adopsi laci yang sudah ada di scene (hasil menu Editor). Mengembalikan false bila
+        /// tidak ditemukan, sehingga builder runtime akan membuatnya dari nol.
+        /// Referensi dikumpulkan berdasarkan struktur nama (window → drawer → content → kartu).
+        /// </summary>
+        bool TryAdoptExistingDrawer(RectTransform craftRt)
+        {
+            Transform window = craftRt.Find("Recipe_Drawer_Window");
+            Transform drawer = window != null ? window.Find("Recipe_Drawer") : craftRt.Find("Recipe_Drawer");
+            if (drawer == null)
+                return false;
+
+            RectTransform drawerRt = drawer as RectTransform;
+            if (drawerRt == null)
+                return false;
+
+            _recipeDrawer = drawerRt;
+            _recipeDrawerClosedX = drawerRt.anchoredPosition.x;
+
+            _recipeDrawerBackground = drawer.GetComponent<Image>();
+
+            Transform tab = craftRt.Find("Recipe_Drawer_Tab");
+            if (tab != null)
+            {
+                _recipeDrawerTab = tab as RectTransform;
+                _recipeDrawerBookmarkImage = tab.GetComponent<Image>();
+
+                Transform label = tab.Find("Label");
+                if (label != null)
+                    _recipeDrawerTabLabel = label.GetComponent<TMPro.TextMeshProUGUI>();
+            }
+
+            Transform content = drawer.Find("Content");
+            if (content != null)
+            {
+                _recipeCardFrames = new Image[6];
+                _recipeResultIcons = new Image[6];
+                _recipeIngredientAIcons = new Image[6];
+                _recipeIngredientBIcons = new Image[6];
+                recipeCardRoots = new RectTransform[6];
+
+                for (int i = 0; i < 6; i++)
+                {
+                    Transform card = content.Find("Recipe_Card_" + i);
+                    if (card == null) continue;
+
+                    recipeCardRoots[i] = card as RectTransform;
+                    _recipeCardFrames[i] = card.GetComponent<Image>();
+
+                    Transform result = card.Find("Result_Box");
+                    if (result != null)
+                        _recipeResultIcons[i] = result.GetComponent<Image>();
+
+                    Transform ing1 = card.Find("Ing1_Box") ?? card.Find("Icon_A");
+                    if (ing1 != null) _recipeIngredientAIcons[i] = ing1.GetComponent<Image>();
+
+                    Transform ing2 = card.Find("Ing2_Box") ?? card.Find("Icon_B");
+                    if (ing2 != null) _recipeIngredientBIcons[i] = ing2.GetComponent<Image>();
+                }
+            }
+
+            // Kartu bahan di sisi kiri (bila ada) di-adopsi juga agar teks Inspector ikut sync.
+            _ingredientCardTitles = new TMPro.TextMeshProUGUI[4];
+            _ingredientCardInfos = new TMPro.TextMeshProUGUI[4];
+            for (int i = 0; i < 4; i++)
+            {
+                Transform card = craftRt.Find("Card_" + (IngredientType)i);
+                if (card == null) continue;
+
+                Transform title = card.Find("Text_Container/Title");
+                if (title != null)
+                    _ingredientCardTitles[i] = title.GetComponent<TMPro.TextMeshProUGUI>();
+
+                Transform desc = card.Find("Text_Container/Desc");
+                if (desc != null)
+                    _ingredientCardInfos[i] = desc.GetComponent<TMPro.TextMeshProUGUI>();
+            }
+
+            _recipeDrawerBuilt = true;
+            return true;
         }
 
         void BuildRecipeDrawer(RectTransform craftRt)
         {
-            if (_recipeDrawerBuilt || craftRt == null)
+            if (craftRt == null)
                 return;
-            _recipeDrawerBuilt = true;
 
-            Font font = ZombieIntroSpotlight.GetSafeFont();
-            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            EnsureDrawerData();
+
+            if (_recipeDrawerBuilt)
+            {
+                // Sudah ada instance di scene: jangan bangun ulang, cukup sinkronkan
+                // data yang mungkin diubah user (tanpa menimpa teks/warna hardcoded).
+                SyncRecipeDrawerFromConfig();
+                return;
+            }
+
+            // Kalau Recipe_Drawer sudah dipasang PERMANEN di scene (lewat menu Editor),
+            // gunakan objek itu apa adanya: re-bind referensi & baca ukuran dari RectTransform.
+            if (TryAdoptExistingDrawer(craftRt))
+            {
+                SyncRecipeDrawerFromConfig();
+                return;
+            }
+
+            _recipeDrawerBuilt = true;
 
             float panelWidth = craftRt.sizeDelta.x;
             if (panelWidth < 100f) panelWidth = 800f;
-            float drawerWidth = Mathf.Min(Mathf.Clamp(recipeDrawerWidth, 240f, 420f), panelWidth * 0.55f);
+            float drawerWidth = Mathf.Min(Mathf.Clamp(recipeDrawerWidth, 240f, 520f), panelWidth * 0.55f);
             _recipeDrawerClosedX = drawerWidth + 2f;
 
             // --- Jendela kliping (RectMask2D) menempel di tepi kiri Craft_panel ---
@@ -1376,7 +2349,9 @@ namespace CuriesCrucible.Gameplay
             _recipeDrawer.localScale = Vector3.one;
 
             Image drawerBg = drawerGo.GetComponent<Image>();
-            drawerBg.color = new Color(0.09f, 0.07f, 0.14f, 0.97f);
+            _recipeDrawerBackground = drawerBg;
+            ApplyFrame(drawerStyle.drawerBackgroundSprite, drawerStyle.drawerBackgroundColor,
+                drawerBg, Color.white);
             drawerBg.raycastTarget = true;
 
             ScrollRect scroll = drawerGo.GetComponent<ScrollRect>();
@@ -1415,96 +2390,30 @@ namespace CuriesCrucible.Gameplay
             csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            string[] reactions =
-            {
-                "Reaksi saponifikasi & pendinginan eksotermik menghasilkan gel kriogenik yang membekukan pergerakan.",
-                "Asam yang diuapkan lalu didinginkan mengembun menjadi kabut korosif yang melapisi zirah sasaran.",
-                "Pendingin dan katalis memicu kristalisasi kilat: ledakan kristal es yang menghentikan laju reaksi.",
-                "Asam pekat berbantu katalis melarutkan lapisan karat dan zirah besi dalam sekejap.",
-                "Netralisasi asam-basa kuat melepaskan gelombang kejut CO2 dan uap panas.",
-                "Busa sabun mengembang oleh katalis: gelembung kimia mendorong sekaligus memperlambat."
-            };
-
-            string[] targets =
-            {
-                "Efektif: Zombie Api \uD83D\uDD25",
-                "Efektif: Zombie Besi \uD83D\uDEE1\uFE0F",
-                "Efektif: Zombie Asam \uD83E\uDDEA",
-                "Efektif: Zombie Besi \uD83D\uDEE1\uFE0F",
-                "Efektif: Zombie Basa \uD83E\uDED7",
-                "Efektif: Zombie Asam \uD83E\uDDEA"
-            };
+            _recipeCardFrames = new Image[6];
+            _recipeResultIcons = new Image[6];
+            _recipeIngredientAIcons = new Image[6];
+            _recipeIngredientBIcons = new Image[6];
+            recipeCardRoots = new RectTransform[6];
 
             for (int i = 0; i < 6; i++)
             {
-                IngredientType ingA;
-                IngredientType ingB;
-                AlchemyManager.GetSlotIngredients(i, out ingA, out ingB);
-
-                GameObject cardGo = new GameObject("Recipe_Card_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement), typeof(Button));
-                cardGo.layer = 5;
-                cardGo.transform.SetParent(contentRt, false);
-
-                LayoutElement cardLayout = cardGo.GetComponent<LayoutElement>();
-                cardLayout.preferredHeight = 172f;
-                cardLayout.minHeight = 172f;
-
-                Image cardBg = cardGo.GetComponent<Image>();
-                cardBg.color = Color.white;
-
-                Outline cardOutline = cardGo.AddComponent<Outline>();
-                cardOutline.effectColor = new Color(0.58f, 0.42f, 0.88f, 0.90f);
-                cardOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-                Button cardButton = cardGo.GetComponent<Button>();
-                cardButton.targetGraphic = cardBg;
-
-                Color cardNormal = new Color(0.22f, 0.15f, 0.34f, 0.96f);
-                ColorBlock cardColors = cardButton.colors;
-                cardColors.normalColor = cardNormal;
-                cardColors.highlightedColor = new Color(0.34f, 0.24f, 0.50f, 1f);
-                cardColors.pressedColor = new Color(0.15f, 0.10f, 0.24f, 1f);
-                cardColors.selectedColor = cardNormal;
-                cardColors.disabledColor = new Color(0.20f, 0.20f, 0.20f, 0.50f);
-                cardColors.colorMultiplier = 1f;
-                cardColors.fadeDuration = 0.08f;
-                cardButton.colors = cardColors;
-
-                int slotIndex = i;
-                cardButton.onClick.AddListener(delegate { QuickFillRecipe(slotIndex); });
-
-                // Baris 1: Nama ramuan
-                CreateCardText(cardGo.transform, "Name", font, 10f, 8f, 10f, 22f, 0f,
-                    AlchemyDatabase.PotionName(AlchemyManager.FixedSlotPotions[i]),
-                    14, new Color(1f, 0.88f, 0.48f, 1f), TextAnchor.MiddleLeft, FontStyle.Bold);
-
-                // Baris 2: Formula visual  [hasil] <- [bahan1] + [bahan2]
-                CreateColorBox(cardGo.transform, "Result_Box", new Vector2(10f, -36f), 44f,
-                    AlchemyDatabase.PotionColor(AlchemyManager.FixedSlotPotions[i]));
-
-                CreateCardText(cardGo.transform, "Arrow", font, 56f, 36f, 0f, 44f, 26f,
-                    "\u2190", 20, new Color(0.95f, 0.92f, 0.86f, 1f), TextAnchor.MiddleCenter, FontStyle.Bold);
-
-                CreateColorBox(cardGo.transform, "Ing1_Box", new Vector2(86f, -38f), 40f,
-                    AlchemyDatabase.IngredientColor(ingA));
-
-                CreateCardText(cardGo.transform, "Plus", font, 130f, 36f, 0f, 44f, 18f,
-                    "+", 20, new Color(0.95f, 0.92f, 0.86f, 1f), TextAnchor.MiddleCenter, FontStyle.Bold);
-
-                CreateColorBox(cardGo.transform, "Ing2_Box", new Vector2(152f, -38f), 40f,
-                    AlchemyDatabase.IngredientColor(ingB));
-
-                // Baris 3: Deskripsi reaksi ilmiah singkat
-                CreateCardText(cardGo.transform, "Desc", font, 10f, 84f, 10f, 52f, 0f,
-                    reactions[i], 11, new Color(0.80f, 0.84f, 0.92f, 0.96f), TextAnchor.UpperLeft, FontStyle.Normal);
-
-                // Baris 4: Target efektif / kegunaan monster
-                CreateCardText(cardGo.transform, "Target", font, 10f, 140f, 10f, 24f, 0f,
-                    targets[i], 12, new Color(0.55f, 1f, 0.62f, 1f), TextAnchor.MiddleLeft, FontStyle.Bold);
+                BuildRecipeCard(contentRt, i);
             }
 
-            // --- Tab bookmark krem di tepi kiri Craft_panel (selalu terlihat) ---
-            GameObject tabGo = new GameObject("Recipe_Drawer_Tab", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            BuildDrawerBookmark(craftRt);
+
+            RefreshRecipeDrawerTab();
+            SyncRecipeDrawerFromConfig();
+
+            // Terapkan sprite dari sumber tunggal (bahan + ramuan) setelah kartu terbangun.
+            ApplyAllPotionSprites();
+        }
+
+        void BuildDrawerBookmark(RectTransform craftRt)
+        {
+            // --- Tab bookmark di tepi kiri Craft_panel (selalu terlihat) ---
+            GameObject tabGo = new GameObject("Recipe_Drawer_Tab", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(Outline));
             tabGo.layer = 5;
             tabGo.transform.SetParent(craftRt, false);
 
@@ -1516,39 +2425,248 @@ namespace CuriesCrucible.Gameplay
             _recipeDrawerTab.sizeDelta = new Vector2(DrawerTabWidth, DrawerTabHeight);
             _recipeDrawerTab.localScale = Vector3.one;
 
-            Image tabBg = tabGo.GetComponent<Image>();
-            tabBg.color = new Color(0.961f, 0.886f, 0.722f, 1f); // #F5E2B8
+            _recipeDrawerBookmarkImage = tabGo.GetComponent<Image>();
+            ApplyFrame(drawerStyle.bookmarkTabSprite, drawerStyle.bookmarkTabColor,
+                _recipeDrawerBookmarkImage, Color.white);
 
-            Outline tabOutline = tabGo.AddComponent<Outline>();
-            tabOutline.effectColor = new Color(0.35f, 0.26f, 0.10f, 0.90f);
+            Outline tabOutline = tabGo.GetComponent<Outline>();
+            tabOutline.effectColor = drawerStyle.bookmarkTabOutlineColor;
             tabOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
             Button tabButton = tabGo.GetComponent<Button>();
-            tabButton.targetGraphic = tabBg;
+            tabButton.targetGraphic = _recipeDrawerBookmarkImage;
             tabButton.onClick.AddListener(ToggleRecipeDrawer);
 
-            GameObject tabLabelGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            tabLabelGo.layer = 5;
-            tabLabelGo.transform.SetParent(tabGo.transform, false);
-
-            RectTransform tabLabelRt = (RectTransform)tabLabelGo.transform;
+            TMPro.TextMeshProUGUI label = UITextUtil.CreateText(tabGo.transform, "Label", drawerTabFontSize);
+            RectTransform tabLabelRt = label.rectTransform;
             tabLabelRt.anchorMin = Vector2.zero;
             tabLabelRt.anchorMax = Vector2.one;
             tabLabelRt.offsetMin = new Vector2(2f, 6f);
             tabLabelRt.offsetMax = new Vector2(-2f, -6f);
             tabLabelRt.localScale = Vector3.one;
 
-            _recipeDrawerTabLabel = tabLabelGo.GetComponent<Text>();
-            _recipeDrawerTabLabel.font = font;
-            _recipeDrawerTabLabel.fontSize = 13;
-            _recipeDrawerTabLabel.fontStyle = FontStyle.Bold;
-            _recipeDrawerTabLabel.alignment = TextAnchor.MiddleCenter;
-            _recipeDrawerTabLabel.color = new Color(0.24f, 0.17f, 0.06f, 1f);
-            _recipeDrawerTabLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
-            _recipeDrawerTabLabel.verticalOverflow = VerticalWrapMode.Overflow;
-            _recipeDrawerTabLabel.raycastTarget = false;
+            label.fontStyle = TMPro.FontStyles.Bold;
+            label.alignment = TMPro.TextAlignmentOptions.Center;
+            label.color = new Color(0.24f, 0.17f, 0.06f, 1f);
+            label.enableWordWrapping = true;
+            label.raycastTarget = false;
 
+            _recipeDrawerTabLabel = label;
+        }
+
+        void BuildRecipeCard(RectTransform contentRt, int i)
+        {
+            RecipeCardData data = recipeCards[i];
+
+            IngredientType ingA;
+            IngredientType ingB;
+            AlchemyManager.GetSlotIngredients(i, out ingA, out ingB);
+
+            GameObject cardGo = new GameObject("Recipe_Card_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement), typeof(Button), typeof(Outline));
+            cardGo.layer = 5;
+            cardGo.transform.SetParent(contentRt, false);
+
+            if (recipeCardRoots == null || recipeCardRoots.Length < 6) recipeCardRoots = new RectTransform[6];
+            recipeCardRoots[i] = (RectTransform)cardGo.transform;
+
+            LayoutElement cardLayout = cardGo.GetComponent<LayoutElement>();
+            cardLayout.preferredHeight = 196f;
+            cardLayout.minHeight = 196f;
+
+            Image cardBg = cardGo.GetComponent<Image>();
+            cardBg.raycastTarget = true;
+
+            Outline cardOutline = cardGo.GetComponent<Outline>();
+            cardOutline.effectColor = drawerStyle.cardOutlineColor;
+            cardOutline.effectDistance = drawerStyle.cardOutlineDistance;
+
+            Button cardButton = cardGo.GetComponent<Button>();
+            cardButton.targetGraphic = cardBg;
+
+            ColorBlock cardColors = cardButton.colors;
+            cardColors.normalColor = Color.white;
+            cardColors.highlightedColor = new Color(1.35f, 1.35f, 1.35f, 1f);
+            cardColors.pressedColor = new Color(0.72f, 0.72f, 0.72f, 1f);
+            cardColors.selectedColor = Color.white;
+            cardColors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            cardColors.colorMultiplier = 1f;
+            cardColors.fadeDuration = 0.08f;
+            cardButton.colors = cardColors;
+
+            int slotIndex = i;
+            cardButton.onClick.AddListener(delegate { QuickFillRecipe(slotIndex); });
+
+            // Baris 1: Judul ramuan
+            CreateCardText(cardGo.transform, "Title",
+                10f, 8f, 10f, 26f, 0f,
+                data.recipeTitle, drawerTitleFontSize, data.titleColor,
+                TMPro.TextAlignmentOptions.MidlineLeft, TMPro.FontStyles.Bold);
+
+            // Baris 2: Formula [hasil] <- [bahan1] + [bahan2]
+            _recipeResultIcons[i] = CreateIconBox(cardGo.transform, "Result_Box", new Vector2(10f, -40f), 50f,
+                AlchemyDatabase.PotionColor(AlchemyManager.FixedSlotPotions[i]));
+
+            CreateCardText(cardGo.transform, "Arrow",
+                64f, 38f, 0f, 50f, 30f,
+                data.arrowText, drawerFormulaGlyphFontSize, new Color(0.95f, 0.92f, 0.86f, 1f),
+                TMPro.TextAlignmentOptions.Center, TMPro.FontStyles.Bold);
+
+            CreateIconBox(cardGo.transform, "Ing1_Box", new Vector2(100f, -44f), 44f,
+                AlchemyDatabase.IngredientColor(ingA));
+
+            CreateCardText(cardGo.transform, "Plus",
+                148f, 38f, 0f, 50f, 24f,
+                data.plusText, drawerFormulaGlyphFontSize, new Color(0.95f, 0.92f, 0.86f, 1f),
+                TMPro.TextAlignmentOptions.Center, TMPro.FontStyles.Bold);
+
+            CreateIconBox(cardGo.transform, "Ing2_Box", new Vector2(176f, -44f), 44f,
+                AlchemyDatabase.IngredientColor(ingB));
+
+            // Simpan referensi ikon bahan agar sprite dari sumber tunggal bisa diterapkan.
+            if (_recipeIngredientAIcons == null || _recipeIngredientAIcons.Length < 6) _recipeIngredientAIcons = new Image[6];
+            if (_recipeIngredientBIcons == null || _recipeIngredientBIcons.Length < 6) _recipeIngredientBIcons = new Image[6];
+            Transform ing1T = cardGo.transform.Find("Ing1_Box");
+            Transform ing2T = cardGo.transform.Find("Ing2_Box");
+            if (ing1T != null) _recipeIngredientAIcons[i] = ing1T.GetComponent<Image>();
+            if (ing2T != null) _recipeIngredientBIcons[i] = ing2T.GetComponent<Image>();
+
+            // Baris 3: Deskripsi ilmiah
+            CreateCardText(cardGo.transform, "Description",
+                10f, 96f, 10f, 56f, 0f,
+                data.scientificDescription, drawerDescriptionFontSize, data.descriptionColor,
+                TMPro.TextAlignmentOptions.TopLeft, TMPro.FontStyles.Normal);
+
+            // Baris 4: Target efektif
+            CreateCardText(cardGo.transform, "Target",
+                10f, 158f, 10f, 28f, 0f,
+                data.effectiveTargetText, drawerTargetFontSize, data.targetColor,
+                TMPro.TextAlignmentOptions.MidlineLeft, TMPro.FontStyles.Bold);
+
+            _recipeCardFrames[i] = cardBg;
+        }
+
+        /// <summary>
+        /// Sinkronkan sprite, warna, dan teks laci dengan nilai Inspector saat ini.
+        /// Aman dipanggil berulang; tidak menyentuh posisi/ukuran yang diatur user di Scene.
+        /// </summary>
+        public void SyncRecipeDrawerFromConfig()
+        {
+            EnsureDrawerData();
+
+            if (_recipeDrawerBackground != null)
+                ApplyFrame(drawerStyle.drawerBackgroundSprite, drawerStyle.drawerBackgroundColor,
+                    _recipeDrawerBackground, Color.white);
+
+            if (_recipeDrawerBookmarkImage != null)
+                ApplyFrame(drawerStyle.bookmarkTabSprite, drawerStyle.bookmarkTabColor,
+                    _recipeDrawerBookmarkImage, Color.white);
+
+            if (_recipeCardFrames != null)
+            {
+                for (int i = 0; i < _recipeCardFrames.Length && i < recipeCards.Length; i++)
+                {
+                    if (_recipeCardFrames[i] == null) continue;
+
+                    ApplyFrame(drawerStyle.recipeCardFrameSprite, drawerStyle.recipeCardFrameColor,
+                        _recipeCardFrames[i], Color.white);
+
+                    if (_recipeResultIcons != null && i < _recipeResultIcons.Length && _recipeResultIcons[i] != null)
+                    {
+                        // Prioritas: override per-kartu → compoundPotionSprites (sumber tunggal) → warna.
+                        Sprite icon = recipeCards[i] != null && recipeCards[i].customPotionIcon != null
+                            ? recipeCards[i].customPotionIcon
+                            : SafeCompoundSprite(i);
+
+                        if (icon != null)
+                        {
+                            ApplyIconSprite(_recipeResultIcons[i], icon);
+                        }
+                        else
+                        {
+                            // Sprite campuran masih null → pertahankan sprite bawaan scene
+                            // (mis. frame "Kotak ux"); jangan di-reset jadi kotak putih polos.
+                            _recipeResultIcons[i].color = AlchemyDatabase.PotionColor(AlchemyManager.FixedSlotPotions[i]);
+                        }
+                    }
+
+                    ApplyRecipeCardText(i);
+                }
+            }
+
+            ApplyIngredientCardText();
             RefreshRecipeDrawerTab();
+        }
+
+        void ApplyRecipeCardText(int i)
+        {
+            if (_recipeCardFrames == null || i >= _recipeCardFrames.Length || _recipeCardFrames[i] == null)
+                return;
+
+            Transform card = _recipeCardFrames[i].transform;
+            RecipeCardData data = recipeCards[i];
+
+            ApplyText(card, "Title", data.recipeTitle, drawerTitleFontSize, data.titleColor);
+            ApplyText(card, "Description", data.scientificDescription, drawerDescriptionFontSize, data.descriptionColor);
+            ApplyText(card, "Target", data.effectiveTargetText, drawerTargetFontSize, data.targetColor);
+            ApplyText(card, "Arrow", data.arrowText, drawerFormulaGlyphFontSize, new Color(0.95f, 0.92f, 0.86f, 1f));
+            ApplyText(card, "Plus", data.plusText, drawerFormulaGlyphFontSize, new Color(0.95f, 0.92f, 0.86f, 1f));
+        }
+
+        static void ApplyText(Transform parent, string childName, string content, float fontSize, Color color)
+        {
+            Transform child = parent.Find(childName);
+            if (child == null) return;
+
+            TMPro.TextMeshProUGUI text = child.GetComponent<TMPro.TextMeshProUGUI>();
+            if (text == null) return;
+
+            if (content != null)
+                text.text = content;
+            if (fontSize > 0f)
+                text.fontSize = fontSize;
+            text.color = color;
+        }
+
+        void ApplyIngredientCardText()
+        {
+            if (_ingredientCardTitles == null) return;
+
+            for (int i = 0; i < _ingredientCardTitles.Length && i < ingredientCards.Length; i++)
+            {
+                if (_ingredientCardTitles[i] != null)
+                {
+                    _ingredientCardTitles[i].text = ingredientCards[i].ingredientTitle;
+                    _ingredientCardTitles[i].fontSize = ingredientCardTitleFontSize;
+                }
+
+                if (_ingredientCardInfos != null && i < _ingredientCardInfos.Length && _ingredientCardInfos[i] != null)
+                {
+                    _ingredientCardInfos[i].text = ingredientCards[i].chemicalInfoText;
+                    _ingredientCardInfos[i].fontSize = ingredientCardInfoFontSize;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Terapkan sprite bingkai + warna. Sprite null = warna solid; sprite ada = sprite
+        /// di-tint dengan warna tersebut (9-slice bila border sprite tersedia).
+        /// </summary>
+        static void ApplyFrame(Sprite sprite, Color backgroundColor, Image target, Color fallbackColor)
+        {
+            if (target == null) return;
+
+            if (sprite != null)
+            {
+                target.sprite = sprite;
+                target.type = sprite.border.sqrMagnitude > 0.0f ? Image.Type.Sliced : Image.Type.Simple;
+                target.color = backgroundColor;
+            }
+            else
+            {
+                target.sprite = null;
+                target.type = Image.Type.Simple;
+                target.color = backgroundColor;
+            }
         }
 
         /// <summary>Isi otomatis slot1 &amp; slot2 kuali dari kartu resep yang diklik (jika stok cukup).</summary>
@@ -1591,9 +2709,13 @@ namespace CuriesCrucible.Gameplay
             RefreshUI(true);
         }
 
-        static Image CreateColorBox(Transform parent, string name, Vector2 topLeftPos, float size, Color color)
+        /// <summary>
+        /// Kotak ikon formula (bisa sprite bila nanti diganti user di Inspector).
+        /// Kotak hasil resep juga dipakai untuk ikon ramuan kustom.
+        /// </summary>
+        static Image CreateIconBox(Transform parent, string name, Vector2 topLeftPos, float size, Color color)
         {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
             go.layer = 5;
             go.transform.SetParent(parent, false);
 
@@ -1609,21 +2731,23 @@ namespace CuriesCrucible.Gameplay
             img.color = color;
             img.raycastTarget = false;
 
-            Outline outline = go.AddComponent<Outline>();
+            Outline outline = go.GetComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
             outline.effectDistance = new Vector2(1f, -1f);
             return img;
         }
 
-        static void CreateCardText(Transform parent, string name, Font font,
+        /// <summary>
+        /// Teks kartu memakai TextMeshProUGUI (SDF) agar tajam di semua resolusi.
+        /// Font SDF berasal dari project (TMP Settings), bukan font bitmap legacy.
+        /// </summary>
+        static void CreateCardText(Transform parent, string name,
             float left, float top, float right, float height, float fixedWidth,
-            string content, int fontSize, Color color, TextAnchor alignment, FontStyle style)
+            string content, float fontSize, Color color,
+            TMPro.TextAlignmentOptions alignment, TMPro.FontStyles style)
         {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.layer = 5;
-            go.transform.SetParent(parent, false);
-
-            RectTransform rt = (RectTransform)go.transform;
+            TMPro.TextMeshProUGUI txt = UITextUtil.CreateText(parent, name, fontSize);
+            RectTransform rt = txt.rectTransform;
             rt.pivot = new Vector2(0f, 1f);
             rt.localScale = Vector3.one;
 
@@ -1642,15 +2766,13 @@ namespace CuriesCrucible.Gameplay
                 rt.offsetMax = new Vector2(-right, -top);
             }
 
-            Text txt = go.GetComponent<Text>();
-            txt.font = font;
-            txt.text = content;
+            txt.text = content ?? string.Empty;
             txt.fontSize = fontSize;
             txt.fontStyle = style;
             txt.color = color;
             txt.alignment = alignment;
-            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
-            txt.verticalOverflow = VerticalWrapMode.Overflow;
+            txt.enableWordWrapping = true;
+            txt.overflowMode = TMPro.TextOverflowModes.Overflow;
             txt.raycastTarget = false;
         }
 
@@ -1673,15 +2795,25 @@ namespace CuriesCrucible.Gameplay
 
                     if (craftStockIconImages[i] != null)
                     {
-                        Color baseColor = AlchemyDatabase.IngredientColor((IngredientType)i);
-                        if (stock > 0)
+                        // Bila PNG sumber tunggal sudah diisi: jangan recolor (warna PNG asli
+                        // dipertahankan, hanya diredupkan saat stok 0).
+                        if (SafeBaseSprite(i) != null)
                         {
-                            craftStockIconImages[i].color = baseColor;
+                            float dim = stock > 0 ? 1f : 0.5f;
+                            craftStockIconImages[i].color = new Color(dim, dim, dim, 1f);
                         }
                         else
                         {
-                            // Redup jika stok habis
-                            craftStockIconImages[i].color = new Color(baseColor.r * 0.45f, baseColor.g * 0.45f, baseColor.b * 0.45f, 0.45f);
+                            Color baseColor = AlchemyDatabase.IngredientColor((IngredientType)i);
+                            if (stock > 0)
+                            {
+                                craftStockIconImages[i].color = baseColor;
+                            }
+                            else
+                            {
+                                // Redup jika stok habis
+                                craftStockIconImages[i].color = new Color(baseColor.r * 0.45f, baseColor.g * 0.45f, baseColor.b * 0.45f, 0.45f);
+                            }
                         }
                     }
                 }
@@ -1739,6 +2871,10 @@ namespace CuriesCrucible.Gameplay
             {
                 SetText(craftPHText, "pH: " + alchemy.CurrentPH.ToString("0.0"));
             }
+
+            // 6. Meja Racik (2 bahan + pratinjau hasil) & ikon panel pH
+            ApplySpritesToMixingTable();
+            ApplySpritesToPhIndicators();
         }
 
         void WireAudio()
@@ -1906,7 +3042,7 @@ namespace CuriesCrucible.Gameplay
         {
             if (comp == null) return;
             if (comp is TMPro.TMP_Text tmp) { tmp.text = val; return; }
-            if (comp is Text uiText) { uiText.text = val; return; }
+            if (comp is Text legacy) { legacy.text = val; }
         }
 
         static Component FindTextComponentIn(GameObject go, params string[] keywords)
@@ -1920,14 +3056,16 @@ namespace CuriesCrucible.Gameplay
                     if (tmps[i].gameObject.name.IndexOf(keywords[k], System.StringComparison.OrdinalIgnoreCase) >= 0)
                         return tmps[i];
 
-            Text[] texts = root.GetComponentsInChildren<Text>(true);
-            for (int k = 0; k < keywords.Length; k++)
-                for (int i = 0; i < texts.Length; i++)
-                    if (texts[i].gameObject.name.IndexOf(keywords[k], System.StringComparison.OrdinalIgnoreCase) >= 0)
-                        return texts[i];
-
             if (tmps.Length > 0) return tmps[0];
-            if (texts.Length > 0) return texts[0];
+
+            // Cadangan: Text legacy (dipakai slot stok bahan di Bottom_panel/Base).
+            Text[] legacies = root.GetComponentsInChildren<Text>(true);
+            for (int k = 0; k < keywords.Length; k++)
+                for (int i = 0; i < legacies.Length; i++)
+                    if (legacies[i].gameObject.name.IndexOf(keywords[k], System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        return legacies[i];
+
+            if (legacies.Length > 0) return legacies[0];
             return null;
         }
 
@@ -1968,4 +3106,10 @@ namespace CuriesCrucible.Gameplay
             return null;
         }
     }
+}
+
+namespace CuriesCrucible.Gameplay
+{
+    // Sprite ikon kini selalu dipasang langsung ke Image.sprite milik slot yang di-assign
+    // di Inspector; penempatan sebagai child tidak lagi didukung.
 }

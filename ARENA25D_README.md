@@ -34,8 +34,7 @@ Menu tambahan: *Rebuild Road Polygon*, *Regenerate Placeholder Art*, *Create Tes
 | `Arena25D/ArenaThrowTargeting.cs` | Raycast jalan, reticle elips, proyektil parabola, integrasi AlchemyManager + Marie. |
 | `Arena25D/Arena25DMath.cs` | Utilitas perspektif/sorting/geometri jalan. |
 | `Arena25D/Arena25DCameraRig.cs` | Framing kamera adaptif (FitWidth) untuk WebGL. |
-| `Player/MarieCurieController.cs` | Gerak balkon, flipX ke kursor, breathing, animasi lempar. |
-| `Alchemy/AlchemyTypes.cs` | `IngredientType`, `PotionType`, `MixedPotion`, `AlchemyDatabase`. |
+| `Player/MarieCurieController.cs` | Gerak balkon, flipX ke kursor, breathing, animasi lempar. || `Alchemy/AlchemyTypes.cs` | `IngredientType`, `PotionType`, `MixedPotion`, `AlchemyDatabase`. |
 | `Alchemy/PotionRecipeSO.cs` | ScriptableObject resep (2 bahan + rentang pH + efek). |
 | `Alchemy/AlchemyManager.cs` | 2 slot kuali, meteran pH, stok bahan, tas ramuan 6 slot, overlay & buku resep. |
 | `Gameplay/ZombieType.cs` | `ZombieType` + nama/warna/stat default. |
@@ -51,6 +50,13 @@ Menu tambahan: *Rebuild Road Polygon*, *Regenerate Placeholder Art*, *Create Tes
 | `UI/SettingsPopup.cs` | Slider volume audio BGM & SFX. |
 | `UI/CreditsPopup.cs` | Panel kredit dan dedikasi ilmiah Marie Curie. |
 | `UI/UIManager.cs` | Koordinator master UI dan event handler. |
+| `UI/UnityObjectUtil.cs` | Helper `Ensure()` untuk fallback referensi `UnityEngine.Object` yang aman terhadap objek yang sudah di-Destroy. |
+| `UI/GameplayUIBridge.cs` | Jembatan HUD minimalis ↔ gameplay: hotbar 6 slot, panel stok bahan, `Craft_panel` + laci resep geser, drag & drop, pause/opsi, volume audio. |
+| `UI/AlchemyCraftingPopup.cs` | Popup laboratorium 2-kolom (panduan resep + kuali 2 slot, meter pH lerp, BREW/CLEAR). |
+| `UI/CraftDragAndDrop.cs` | `CraftIngredientDraggable` (drag kartu bahan/slot kuali, klik cepat, buang ke luar panel) dan `CauldronSlotDropZone` (drop & swap slot). |
+| `Gameplay/TowerPipeHarvester.cs` | 4 gelembung panen pipa menara (Basa/Pendingin/Asam/Katalis) ala Clash of Clans, produksi tiap 7 detik. |
+| `Gameplay/ZombieIntroSpotlight.cs` | Spotlight sinematik + kartu Quick Info saat tipe zombie pertama kali muncul (blokir input sampai LANJUT). |
+| `Gameplay/ChemicalFeedbackManager.cs` | Teks melayang (floating text) umpan balik reaksi kimia di atas zombie. |
 | `Editor/MarieCurieSetup.cs` | Menu 2. |
 | `Editor/AlchemyContentSetup.cs` | Menu 3. |
 | `Editor/UISpriteAssetGenerator.cs` | Generator sprite procedural Victorian-Steampunk 9-slice. |
@@ -63,14 +69,21 @@ Menu tambahan: *Rebuild Road Polygon*, *Regenerate Placeholder Art*, *Create Tes
 |---|---|
 | `A` / `D` atau `←` / `→` | Geser Marie di balkon (-0.85 .. 0.85) |
 | Mouse | Aim reticle (hanya di jalan) |
-| Klik kiri | Lempar ramuan terpilih (stok berkurang) |
-| `1` `2` `3` `4` | Masukkan Bahan Basa / Pendingin / Asam / Katalis ke kuali |
-| `R` | Brew (racik) isi kuali |
+| Klik kiri | Lempar ramuan slot terpilih (stok berkurang; klik di luar panel crafting = buang bahan) |
+| `1` – `6` | Pilih slot ramuan tetap di hotbar |
+| `R` | Racik 1× resep slot terpilih (atau brew kuali saat `Craft_panel` terbuka) |
 | `Q` / `E` | Pilih ramuan sebelumnya / berikutnya |
 | `F` | Kosongkan kuali (bahan dikembalikan) |
+| `C` | Buka / tutup panel crafting (HUD) |
 | `F1` | Toggle overlay status alkimia |
-| `F2` | Toggle buku resep |
+| `F2` / `I` | Toggle buku resep |
+| `Esc` / `P` | Pause (menutup popup yang terbuka lebih dulu) |
 | `Space` | Mulai wave berikutnya lebih cepat (saat jeda) |
+| `Space` (spotlight) | Lanjutkan setelah kartu Quick Info zombie baru |
+
+**Catatan hotbar:** gameplay utama memakai 6 slot ramuan **tetap** — slot `1`–`6` selalu memetakan ke kombinasi yang sama
+(lihat `AlchemyManager.FixedSlotPotions`), sehingga `R` meracik langsung tanpa perlu menyusun kuali.
+Kuali 2-slot (`Craft_panel`) tetap tersedia untuk meracik manual dan bereksperimen dengan pH.
 
 ## Sistem Alkimia
 
@@ -87,8 +100,9 @@ Menu tambahan: *Rebuild Road Polygon*, *Regenerate Placeholder Art*, *Create Tes
 | Bom Netralisasi | Asam + Basa | 7.0 | Damage besar, kunci Boss tahap 2 |
 | Busa Sabun Mengembang | Basa + Katalis | 11.5 | Knockback + slow |
 
-- **Stok bahan**: mulai 3 per jenis, bertambah dari drop zombie.
-- **Tas ramuan**: maks 6 slot. Ramuan terpilih yang dilempar akan hilang dari tas.
+- **Stok bahan**: mulai 3 per jenis, bertambah dari drop zombie dan gelembung panen pipa menara.
+  Batas `maxStockPerIngredient` (default 6) berlaku untuk drop, panen, dan refund kuali.
+- **Tas ramuan**: hotbar 6 slot tetap; ramuan terpilih yang dilempar akan berkurang 1x dari slot-nya.
 
 ## Reaksi Zombie
 
@@ -124,6 +138,7 @@ Diberikan oleh `WaveManager` sesuai `mutationChance` wave:
 | 4 | Boss | 3 Besi + Boss Unstable Amalgam | drop 5× |
 
 Menara mulai dengan **10 HP**. Setiap zombie yang mencapai ujung path mengurangi HP (Boss −5).
+Kelima wave (termasuk wave Boss) dijalankan berurutan; kemenangan (Victory) baru aktif setelah wave terakhir selesai.
 
 ## Catatan WebGL
 
@@ -132,6 +147,10 @@ Menara mulai dengan **10 HP**. Setiap zombie yang mencapai ujung path mengurangi
 - Overlay `OnGUI` bersifat debug — matikan `showDebugOverlay` di `AlchemyManager` untuk build rapi,
   atau ganti dengan UI Canvas.
 - Sprite placeholder dibuat uncompressed tanpa mipmap; ganti dengan art final bila diperlukan.
+- `GameplayUIBridge` dan `ZombieIntroSpotlight` mendaftar otomatis lewat `RuntimeInitializeOnLoadMethod`,
+  tetapi hanya aktif di scene gameplay (ada `WaveManager`/`AlchemyManager`) sehingga scene menu tidak tersentuh.
+- Gunakan helper `UnityObjectUtil.Ensure()` untuk fallback referensi; jangan pakai `??` pada `UnityEngine.Object`
+  karena operator itu melewati null-check khusus Unity.
 
 ## Verifikasi
 

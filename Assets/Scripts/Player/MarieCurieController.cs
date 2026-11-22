@@ -25,6 +25,9 @@ namespace CuriesCrucible.Player
 
         public float moveSpeed = 3.0f;
 
+        [Tooltip("Jika false, pemain tidak dapat menggeser posisi Marie (dipakai saat cutscene / dialog).")]
+        public bool enableInput = true;
+
         [Header("Referensi")]
         [Tooltip("Transform MarieCurie_ThrowOrigin (sibling di Environment_Layers).")]
         public Transform throwOrigin;
@@ -95,7 +98,14 @@ namespace CuriesCrucible.Player
 
         void HandleMovement()
         {
+            if (!enableInput)
+                return;
+
             float input = Input.GetAxisRaw("Horizontal");
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+                input = -1f;
+            else if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+                input = 1f;
 
             if (Mathf.Abs(input) < 0.01f)
                 return;

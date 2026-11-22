@@ -462,20 +462,32 @@ namespace CuriesCrucible.Arena25D
                 if (polygon == null)
                     return;
 
-                Vector2[] left = Arena25DMath.RoadOutline(
-                    Arena25DMath.ReadPath2D(leftWaypoints), halfWidth);
+                Vector2[] leftPts = Arena25DMath.ReadPath2D(leftWaypoints);
+                Vector2[] rightPts = Arena25DMath.ReadPath2D(rightWaypoints);
 
-                Vector2[] right = Arena25DMath.RoadOutline(
-                    Arena25DMath.ReadPath2D(rightWaypoints), halfWidth);
+                if (leftPts.Length < 2 || rightPts.Length < 2)
+                    return;
 
-                if (left.Length < 3 || right.Length < 3)
+                // Bangun jalur polyline kontinu dari gerbang kiri (L1) melintasi tengah menara ke gerbang kanan (R1)
+                System.Collections.Generic.List<Vector2> continuousPath = new System.Collections.Generic.List<Vector2>();
+                for (int i = 0; i < leftPts.Length; i++)
+                    continuousPath.Add(leftPts[i]);
+
+                // Titik tengah penghubung di depan balkon menara
+                Vector2 centerPoint = new Vector2(0f, (leftPts[leftPts.Length - 1].y + rightPts[rightPts.Length - 1].y) * 0.5f + 0.25f);
+                continuousPath.Add(centerPoint);
+
+                for (int i = rightPts.Length - 1; i >= 0; i--)
+                    continuousPath.Add(rightPts[i]);
+
+                Vector2[] fullOutline = Arena25DMath.RoadOutline(continuousPath, halfWidth);
+                if (fullOutline.Length < 3)
                     return;
 
                 Undo.RecordObject(polygon, "Rebuild Road Polygon");
 
-                polygon.pathCount = 2;
-                polygon.SetPath(0, left);
-                polygon.SetPath(1, right);
+                polygon.pathCount = 1;
+                polygon.SetPath(0, fullOutline);
 
                 EditorUtility.SetDirty(polygon);
             }

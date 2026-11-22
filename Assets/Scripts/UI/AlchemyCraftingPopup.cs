@@ -61,7 +61,7 @@ namespace CuriesCrucible.UI
         void Start()
         {
             if (alchemy == null)
-                alchemy = AlchemyManager.Instance ?? FindObjectOfType<AlchemyManager>();
+                alchemy = AlchemyManager.Instance.Ensure(() => FindObjectOfType<AlchemyManager>());
 
             RefreshCauldronUI();
         }
@@ -87,7 +87,7 @@ namespace CuriesCrucible.UI
         public void Open()
         {
             if (alchemy == null)
-                alchemy = AlchemyManager.Instance ?? FindObjectOfType<AlchemyManager>();
+                alchemy = AlchemyManager.Instance.Ensure(() => FindObjectOfType<AlchemyManager>());
 
             if (panelRoot != null)
                 panelRoot.SetActive(true);
