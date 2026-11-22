@@ -14,11 +14,6 @@ public class play_ui_manager : MonoBehaviour
         // Pastikan waktu berjalan normal setiap kali level dimulai
         Time.timeScale = 1f;
 
-        // Cari otomatis hanya jika slot di Inspector belum diisi
-        if (panelPause == null) panelPause = GameObject.FindWithTag("Pause");
-        if (panelCraft == null) panelCraft = GameObject.FindWithTag("Craft");
-        if (panelOpsi == null) panelOpsi = GameObject.FindWithTag("Opsi");
-
         // Cek satu per satu agar jika satu kosong, yang lain tetap jalan
         if (panelCraft != null) panelCraft.SetActive(false);
         if (panelPause != null) panelPause.SetActive(false);
