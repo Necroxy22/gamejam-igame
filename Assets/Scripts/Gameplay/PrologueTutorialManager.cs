@@ -55,6 +55,8 @@ namespace CuriesCrucible.Gameplay
 
         [Header("Referensi Scene (Auto-wire)")]
         public MarieCurieController marie;
+        [Tooltip("Karakter Wizard di balkon")]
+        public GameObject wizard;
         public Camera mainCamera;
         public Arena25DCameraRig cameraRig;
         public WaveManager waveManager;
@@ -208,12 +210,14 @@ namespace CuriesCrucible.Gameplay
 
             EnsureArenaActive();
             ResolveReferences();
+            HideMariePlaceholder();
         }
 
         void Start()
         {
             EnsureArenaActive();
             ResolveReferences();
+            HideMariePlaceholder();
 
             if (runTutorialOnStart)
             {
@@ -256,6 +260,7 @@ namespace CuriesCrucible.Gameplay
 
         public void ResolveReferences()
         {
+            if (wizard == null) wizard = GameObject.Find("Wizard");
             if (mainCamera == null) mainCamera = Camera.main;
             if (cameraRig == null) cameraRig = FindObjectOfType<Arena25DCameraRig>();
             if (marie == null) marie = FindObjectOfType<MarieCurieController>();
@@ -362,13 +367,11 @@ namespace CuriesCrucible.Gameplay
                 harvestPipes.gameObject.SetActive(false);
             }
 
-            // Sembunyikan karakter Marie Curie (alpha = 0)
-            if (marie != null && marie.spriteRenderer != null)
-            {
-                Color c = marie.spriteRenderer.color;
-                c.a = 0f;
-                marie.spriteRenderer.color = c;
-            }
+            // Sembunyikan / nonaktifkan placeholder kotak merah Marie
+            HideMariePlaceholder();
+
+            // Sembunyikan karakter Wizard (alpha = 0)
+            SetWizardAlpha(0f);
 
             // Mulai Fase 0
             ChangeState(PrologueState.Phase0_CleanScreen);
@@ -401,14 +404,9 @@ namespace CuriesCrucible.Gameplay
                     break;
 
                 case PrologueState.Phase1_MarieAppear:
-                    // Fade-in Marie Curie (alpha 0 -> 1)
-                    if (marie != null && marie.spriteRenderer != null)
-                    {
-                        float alpha = Mathf.Clamp01(_stateTimer / 0.9f);
-                        Color c = marie.spriteRenderer.color;
-                        c.a = alpha;
-                        marie.spriteRenderer.color = c;
-                    }
+                    // Fade-in Wizard (alpha 0 -> 1 dalam 1 detik)
+                    float wizardFadeAlpha = Mathf.Clamp01(_stateTimer / 1.0f);
+                    SetWizardAlpha(wizardFadeAlpha);
 
                     if (_stateTimer >= 1.2f)
                     {
@@ -419,6 +417,9 @@ namespace CuriesCrucible.Gameplay
                     break;
 
                 case PrologueState.Phase2_SpawnZombie:
+                    // Balik scale.x Wizard menjadi negatif agar menoleh ke kiri (arah jalur datang zombie)
+                    SetWizardFacingLeft();
+
                     if (_stateTimer >= 1.0f)
                     {
                         // Kamera geser membidik Zombie Asam yang merayap masuk
@@ -710,6 +711,11 @@ namespace CuriesCrucible.Gameplay
             CurrentState = newState;
             _stateTimer = 0f;
 
+            if (newState == PrologueState.Phase2_SpawnZombie)
+            {
+                SetWizardFacingLeft();
+            }
+
             if (newState == PrologueState.Step6_ClickBrew)
             {
                 if (alchemy == null) alchemy = AlchemyManager.Instance ?? FindObjectOfType<AlchemyManager>();
@@ -919,6 +925,8 @@ namespace CuriesCrucible.Gameplay
 
         Vector3 GetBalconyWorldPos()
         {
+            if (wizard == null) wizard = GameObject.Find("Wizard");
+            if (wizard != null) return wizard.transform.position;
             if (marie != null) return marie.transform.position;
             GameObject b = GameObject.Find("Tower_Balcony");
             if (b != null) return b.transform.position;
@@ -1143,11 +1151,116 @@ namespace CuriesCrucible.Gameplay
             UpdateSpeechBubblePosition();
         }
 
+        void SetWizardAlpha(float alpha)
+        {
+            if (wizard == null) wizard = GameObject.Find("Wizard");
+            if (wizard == null) return;
+
+            SpriteRenderer[] renderers = wizard.GetComponentsInChildren<SpriteRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null)
+                {
+                    Color c = renderers[i].color;
+                    c.a = alpha;
+                    renderers[i].color = c;
+                }
+            }
+        }
+
+        void SetWizardFacingLeft()
+        {
+            if (wizard == null) wizard = GameObject.Find("Wizard");
+            if (wizard == null) return;
+
+            Vector3 s = wizard.transform.localScale;
+            s.x = -Mathf.Abs(s.x);
+            wizard.transform.localScale = s;
+        }
+
+        public void HideMariePlaceholder()
+        {
+            if (marie != null)
+            {
+                if (marie.spriteRenderer != null)
+                {
+                    marie.spriteRenderer.enabled = false;
+                    Color c = marie.spriteRenderer.color;
+                    c.a = 0f;
+                    marie.spriteRenderer.color = c;
+                }
+
+                SpriteRenderer[] childRenderers = marie.GetComponentsInChildren<SpriteRenderer>(true);
+                for (int i = 0; i < childRenderers.Length; i++)
+                {
+                    if (childRenderers[i] != null)
+                    {
+                        childRenderers[i].enabled = false;
+                        Color c = childRenderers[i].color;
+                        c.a = 0f;
+                        childRenderers[i].color = c;
+                    }
+                }
+
+                marie.gameObject.SetActive(false);
+            }
+
+            string[] candidateNames = new string[]
+            {
+                "marieRenderer",
+                "mariePlaceholder",
+                "MarieCurie_Placeholder",
+                "Marie_Placeholder",
+                "MariePlaceholder",
+                "MarieCurie",
+                "Marie_Curie",
+                "Placeholder_Marie",
+                "Marie"
+            };
+
+            for (int i = 0; i < candidateNames.Length; i++)
+            {
+                GameObject obj = GameObject.Find(candidateNames[i]);
+                if (obj != null && (wizard == null || (obj != wizard && !obj.transform.IsChildOf(wizard.transform))))
+                {
+                    var r = obj.GetComponent<Renderer>();
+                    if (r != null) r.enabled = false;
+                    obj.SetActive(false);
+                }
+            }
+
+            GameObject arena = GameObject.Find("Arena_25D");
+            if (arena != null)
+            {
+                Transform[] transforms = arena.GetComponentsInChildren<Transform>(true);
+                for (int i = 0; i < transforms.Length; i++)
+                {
+                    Transform t = transforms[i];
+                    if (t == null) continue;
+                    if (wizard != null && (t.gameObject == wizard || t.IsChildOf(wizard.transform)))
+                        continue;
+
+                    string lower = t.name.ToLowerInvariant();
+                    if (lower.Contains("marie") || lower.Contains("placeholder"))
+                    {
+                        var r = t.GetComponent<Renderer>();
+                        if (r != null) r.enabled = false;
+                        t.gameObject.SetActive(false);
+                    }
+                }
+            }
+        }
+
         void UpdateSpeechBubblePosition()
         {
-            if (_speechBubbleRt == null || marie == null || mainCamera == null) return;
+            if (_speechBubbleRt == null || mainCamera == null) return;
 
-            Vector3 worldPos = marie.transform.position + Vector3.up * 1.4f + Vector3.right * 0.2f;
+            if (wizard == null) wizard = GameObject.Find("Wizard");
+            if (wizard == null) return;
+
+            // Pastikan acuan posisi speech bubble hanya memakai objek Wizard (+1.2f world unit dari pusat Wizard)
+            Vector3 worldPos = wizard.transform.position + Vector3.up * 1.2f;
+
             Vector2 localPoint;
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRt, mainCamera.WorldToScreenPoint(worldPos), null, out localPoint))
             {
@@ -1261,17 +1374,9 @@ namespace CuriesCrucible.Gameplay
                 alchemy.selectedSlotIndex = 0;
             }
 
-            // Kembalikan Marie & kamera ke keadaan normal
-            if (marie != null)
-            {
-                marie.enableInput = true;
-                if (marie.spriteRenderer != null)
-                {
-                    Color c = marie.spriteRenderer.color;
-                    c.a = 1f;
-                    marie.spriteRenderer.color = c;
-                }
-            }
+            // Pastikan Wizard tampak penuh dan placeholder Marie tetap tersembunyi
+            SetWizardAlpha(1f);
+            HideMariePlaceholder();
 
             if (mainCamera != null)
             {

@@ -49,6 +49,9 @@ namespace CuriesCrucible.Arena25D
         [Tooltip("Marie Curie di balkon (untuk memicu animasi lempar).")]
         public MarieCurieController marie;
 
+        [Tooltip("Karakter Wizard di balkon (animasi Attack & hadap arah lemparan).")]
+        public GameObject wizard;
+
         [Header("Aim Reticle")]
         [Tooltip("SpriteRenderer indikator AoE (biasanya child 'Aim_Reticle').")]
         public SpriteRenderer reticle;
@@ -191,6 +194,9 @@ namespace CuriesCrucible.Arena25D
         {
             _camera = arenaCamera != null ? arenaCamera : Camera.main;
 
+            if (wizard == null)
+                wizard = GameObject.Find("Wizard");
+
             if (roadCollider == null)
             {
                 GameObject roadGo = GameObject.Find("Road_Clickable_Area");
@@ -200,6 +206,86 @@ namespace CuriesCrucible.Arena25D
 
             if (forceQueriesHitTriggers)
                 Physics2D.queriesHitTriggers = true;
+
+            HideMariePlaceholder();
+        }
+
+        void Start()
+        {
+            HideMariePlaceholder();
+        }
+
+        public void HideMariePlaceholder()
+        {
+            if (marie != null)
+            {
+                if (marie.spriteRenderer != null)
+                {
+                    marie.spriteRenderer.enabled = false;
+                    Color c = marie.spriteRenderer.color;
+                    c.a = 0f;
+                    marie.spriteRenderer.color = c;
+                }
+
+                SpriteRenderer[] childRenderers = marie.GetComponentsInChildren<SpriteRenderer>(true);
+                for (int i = 0; i < childRenderers.Length; i++)
+                {
+                    if (childRenderers[i] != null)
+                    {
+                        childRenderers[i].enabled = false;
+                        Color c = childRenderers[i].color;
+                        c.a = 0f;
+                        childRenderers[i].color = c;
+                    }
+                }
+
+                marie.gameObject.SetActive(false);
+            }
+
+            string[] candidateNames = new string[]
+            {
+                "marieRenderer",
+                "mariePlaceholder",
+                "MarieCurie_Placeholder",
+                "Marie_Placeholder",
+                "MariePlaceholder",
+                "MarieCurie",
+                "Marie_Curie",
+                "Placeholder_Marie",
+                "Marie"
+            };
+
+            for (int i = 0; i < candidateNames.Length; i++)
+            {
+                GameObject obj = GameObject.Find(candidateNames[i]);
+                if (obj != null && (wizard == null || (obj != wizard && !obj.transform.IsChildOf(wizard.transform))))
+                {
+                    var r = obj.GetComponent<Renderer>();
+                    if (r != null) r.enabled = false;
+                    obj.SetActive(false);
+                }
+            }
+
+            GameObject arena = GameObject.Find("Arena_25D");
+            if (arena != null)
+            {
+                Transform[] transforms = arena.GetComponentsInChildren<Transform>(true);
+                for (int i = 0; i < transforms.Length; i++)
+                {
+                    Transform t = transforms[i];
+                    if (t == null) continue;
+                    if (wizard != null && (t.gameObject == wizard || t.IsChildOf(wizard.transform)))
+                        continue;
+
+                    string lower = t.name.ToLowerInvariant();
+                    if (lower.Contains("marie") || lower.Contains("placeholder"))
+                    {
+                        var r = t.GetComponent<Renderer>();
+                        if (r != null) r.enabled = false;
+                        t.gameObject.SetActive(false);
+                    }
+                }
+            }
         }
 
         void Update()
@@ -392,7 +478,7 @@ namespace CuriesCrucible.Arena25D
 
             _nextThrowTime = Time.time + Mathf.Max(0f, throwCooldown);
 
-            Vector3 originWorld = throwOrigin != null ? throwOrigin.position : new Vector3(0f, 1.5f, 0f);
+            Vector3 originWorld = throwOrigin != null ? throwOrigin.position : (wizard != null ? wizard.transform.position + Vector3.up * 0.5f : new Vector3(0f, 1.5f, 0f));
             Vector2 start = new Vector2(originWorld.x, originWorld.y);
 
             float distance = Vector2.Distance(start, target);
@@ -445,9 +531,22 @@ namespace CuriesCrucible.Arena25D
 
             PoseProjectile(projectile, 0f);
 
-            // Picu animasi lempar Marie Curie.
-            if (marie != null)
-                marie.PlayThrowAnimation();
+            // Arahkan Wizard dan putar animasi lempar Attack
+            if (wizard == null)
+                wizard = GameObject.Find("Wizard");
+
+            if (wizard != null)
+            {
+                Vector3 ws = wizard.transform.localScale;
+                ws.x = (target.x < wizard.transform.position.x) ? -Mathf.Abs(ws.x) : Mathf.Abs(ws.x);
+                wizard.transform.localScale = ws;
+
+                Animator wizardAnim = wizard.GetComponent<Animator>() ?? wizard.GetComponentInChildren<Animator>();
+                if (wizardAnim != null)
+                {
+                    wizardAnim.Play("Attack", 0, 0f);
+                }
+            }
 
             // Mainkan SFX lempar ramuan
             GameAudioManager.Instance?.PlayThrowSFX();
