@@ -16,9 +16,12 @@ public class Main_menu : MonoBehaviour
     private void Start() {
         panelTutorial = GameObject.FindWithTag("Tutorial");
         panelOpsi = GameObject.FindWithTag("Opsi");
-        if (panelOpsi != null && panelTutorial != null)
+        if (panelOpsi != null)
         {
             panelOpsi.SetActive(false);
+        }
+        if (panelTutorial != null)
+        {
             panelTutorial.SetActive(false);
         }
 
