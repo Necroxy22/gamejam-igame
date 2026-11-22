@@ -289,8 +289,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 19.074, y: -94}
-  m_SizeDelta: {x: 596.11, y: 79.8864}
+  m_AnchoredPosition: {x: 0, y: -174}
+  m_SizeDelta: {x: 1180.7, y: 79.8864}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &435318959
 MonoBehaviour:
@@ -312,10 +312,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Nama - Kontribusi
+  m_text: Ghozi Mekka Sabily - Composer & Sound Design
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
-  m_sharedMaterial: {fileID: -623626566039013457, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
+  m_sharedMaterial: {fileID: 5569360311123161027, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -339,8 +339,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 56
-  m_fontSizeBase: 56
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -515,8 +515,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -446, y: 198.72}
-  m_SizeDelta: {x: 637.3246, y: 102.4524}
+  m_AnchoredPosition: {x: -351.39087, y: 103.889984}
+  m_SizeDelta: {x: 846.5428, y: 102.4524}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &601576127
 MonoBehaviour:
@@ -538,10 +538,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Nama - Kontribusi
+  m_text: Ryandika Yusuf R. - Lead Programmer
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
-  m_sharedMaterial: {fileID: -623626566039013457, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
+  m_sharedMaterial: {fileID: 5569360311123161027, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -565,8 +565,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 56
-  m_fontSizeBase: 56
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -717,7 +717,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 41, y: 284}
+  m_AnchoredPosition: {x: 9, y: 189.17}
   m_SizeDelta: {x: 637.3246, y: 102.4524}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &710903659
@@ -963,7 +963,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 19.074, y: 16.228}
+  m_AnchoredPosition: {x: 9, y: -57}
   m_SizeDelta: {x: 637.3246, y: 102.4524}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &921367327
@@ -1145,7 +1145,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 539, y: 192.83}
+  m_AnchoredPosition: {x: 423.87, y: 103.89}
   m_SizeDelta: {x: 571.6777, y: 79.8864}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1026830175
@@ -1168,10 +1168,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Nama - Kontribusi
+  m_text: Abdul Aziz F. - UI/UX Programmer
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
-  m_sharedMaterial: {fileID: -623626566039013457, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
+  m_sharedMaterial: {fileID: 5569360311123161027, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1195,8 +1195,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 56
-  m_fontSizeBase: 56
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1413,7 +1413,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 36, y: -249}
+  m_AnchoredPosition: {x: 0, y: -332.71002}
   m_SizeDelta: {x: 637.3246, y: 102.4524}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1180821228
@@ -1547,8 +1547,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 46.99998, y: 413}
-  m_SizeDelta: {x: 611.29, y: 71.2575}
+  m_AnchoredPosition: {x: -0.000019073, y: 350}
+  m_SizeDelta: {x: 611.29, y: 163.3548}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1472505012
 MonoBehaviour:
@@ -1597,8 +1597,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 56
-  m_fontSizeBase: 56
+  m_fontSize: 85
+  m_fontSizeBase: 85
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1681,8 +1681,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 539.2036, y: -356.28998}
-  m_SizeDelta: {x: 567.0702, y: 79.8864}
+  m_AnchoredPosition: {x: 486, y: -408}
+  m_SizeDelta: {x: 695.9336, y: 79.886}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1643111375
 MonoBehaviour:
@@ -1704,10 +1704,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Nama - Kontribusi
+  m_text: Rian Rizki R. - Background & Environment
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
-  m_sharedMaterial: {fileID: -623626566039013457, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
+  m_sharedMaterial: {fileID: 5569360311123161027, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1731,8 +1731,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 56
-  m_fontSizeBase: 56
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1767,7 +1767,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 0, y: 0, z: -176.72205, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -1890,8 +1890,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -442.4664, y: -356.28998}
-  m_SizeDelta: {x: 573.9945, y: 79.8864}
+  m_AnchoredPosition: {x: -387.33, y: -423.88}
+  m_SizeDelta: {x: 774.67, y: 79.8864}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1855851107
 MonoBehaviour:
@@ -1913,10 +1913,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Nama - Kontribusi
+  m_text: Salsabila Febriana - UI & Character
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
-  m_sharedMaterial: {fileID: -623626566039013457, guid: 73f8735acf83c9443bc961342ecbaa81, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
+  m_sharedMaterial: {fileID: 5569360311123161027, guid: 5d6a85024c4695d44ab0d247d06c3c03, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1940,8 +1940,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 56
-  m_fontSizeBase: 56
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1976,7 +1976,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 0, y: 0, z: 12.02533, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
